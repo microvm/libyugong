@@ -164,6 +164,8 @@ low address
 high address
 ```
 
+The "service routine" is `_yg_func_begin_resume`.
+
 # License
 
 The MIT license. See [LICENSE](LICENSE).
