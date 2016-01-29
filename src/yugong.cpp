@@ -5,13 +5,15 @@
 
 namespace yg {
 
-    void YGStack::alloc(YGStack &stack, uintptr_t size) {
+    void YGStack::alloc(YGStack &stack, uintptr_t size, FuncPtr stack_bottom_func) {
         void *mem = std::malloc(size);
         uintptr_t start = reinterpret_cast<uintptr_t>(mem);
 
         stack.start = start;
         stack.size = size;
         stack.sp = start + size;
+
+        ll::push_initial_frame(stack, stack_bottom_func);
     }
 
     void YGStack::free(YGStack &stack) {

@@ -15,9 +15,7 @@ void sbf(uintptr_t arg) {
 }
 
 int main(int argc, char *argv[]) {
-    YGStack::alloc(coro_stack, 4096);
-
-    ll::push_initial_frame(coro_stack, (FuncPtr)sbf);
+    YGStack::alloc(coro_stack, 4096, (FuncPtr)sbf);
 
     const char *name = "world";
 

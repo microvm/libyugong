@@ -12,7 +12,7 @@ namespace yg {
         uintptr_t start;
         uintptr_t size;
 
-        static void alloc(YGStack &stack, uintptr_t size);
+        static void alloc(YGStack &stack, uintptr_t size, FuncPtr stack_bottom_func);
         static void free(YGStack &stack);
     };
 
