@@ -41,4 +41,14 @@ namespace yg {
 #error "Expect __APPLE__ or __linux__"
 #endif
     }
+
+    void YGCursor::step() {
+        unw_step(&unw_cursor);
+    }
+
+    uintptr_t YGCursor::cur_pc() {
+        uintptr_t ip;
+        unw_get_reg(&unw_cursor, UNW_REG_IP, reinterpret_cast<unw_word_t*>(&ip));
+        return ip;
+    }
 }

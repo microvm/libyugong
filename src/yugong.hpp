@@ -50,8 +50,7 @@ namespace yg {
             
         YGCursor(YGStack &stack);
 
-        void next();
-        uintptr_t cur_func();
+        void step();
         uintptr_t cur_pc();
     };
 
