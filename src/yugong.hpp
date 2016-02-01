@@ -3,6 +3,13 @@
 
 #include <cstdint>
 
+#ifdef __LINUX__
+#define _GNU_SOURCE
+#include <sys/ucontext.h>
+#endif
+
+#include <libunwind.h>
+
 namespace yg {
     inline void _store_word(uintptr_t addr, uintptr_t word) {
         *reinterpret_cast<uintptr_t*>(addr) = word;
@@ -34,9 +41,21 @@ namespace yg {
 
         void _push_return_address(uintptr_t addr);
         void _push_function_starter(uintptr_t func);
-        void _push_initial_frame(uintptr_t func);
         void _push_empty_ss_top();
     };
+
+    struct YGCursor {
+        unw_cursor_t unw_cursor;
+        YGStack *stack;
+            
+        YGCursor(YGStack &stack);
+
+        void next();
+        uintptr_t cur_func();
+        uintptr_t cur_pc();
+    };
+
+    void _ss_top_to_unw_context(YGStack &stack, unw_context_t *ctx);
 }
 
 extern "C" {
