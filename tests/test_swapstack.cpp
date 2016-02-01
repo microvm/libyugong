@@ -15,7 +15,8 @@ void sbf(uintptr_t arg) {
 }
 
 int main(int argc, char *argv[]) {
-    YGStack::alloc(coro_stack, 4096, (FuncPtr)sbf);
+    coro_stack = YGStack::alloc(4096);
+    coro_stack.init((uintptr_t)sbf);
 
     const char *name = "world";
 
@@ -25,7 +26,7 @@ int main(int argc, char *argv[]) {
 
     printf("Welcome back. Result is %ld\n", result);
 
-    YGStack::free(coro_stack);
+    coro_stack.free();
 
     return 0;
 }
