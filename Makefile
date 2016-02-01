@@ -11,8 +11,12 @@ ifndef OS
     endif
 endif
 
-CFLAGS += -std=gnu11
-CXXFLAGS += -std=gnu++11
+override CFLAGS += -std=gnu11
+override CXXFLAGS += -std=gnu++11
+
+ifeq ($(OS),LINUX)
+    override LDFLAGS += -lunwind -lunwind-x86_64
+endif
 
 YUGONG_CXX_SRCS = $(wildcard src/*.cpp)
 YUGONG_CXX_HDRS = $(wildcard src/*.hpp)
@@ -28,6 +32,7 @@ YUGONG_OUTS = $(YUGONG_CXX_OUTS) $(YUGONG_ASM_OUTS)
 YUGONG_AR = target/libyugong.a
 
 TEST_SRCS = $(wildcard tests/test_*.cpp)
+TEST_HDRS = $(wildcard tests/test_*.hpp)
 TEST_OUTS = $(foreach F,$(TEST_SRCS),$(patsubst tests/%.cpp,target/%,$(F)))
 TEST_CXXFLAGS = $(CXXFLAGS) -I src
 
@@ -61,8 +66,8 @@ $(YUGONG_AR): $(YUGONG_OUTS)
 
 tests: $(TEST_OUTS)
 
-$(TEST_OUTS): target/%: tests/%.cpp $(YUGONG_AR)
-	$(CXX) $(TEST_CXXFLAGS) $< $(YUGONG_AR) -o $@
+$(TEST_OUTS): target/%: tests/%.cpp $(TEST_HDRS) $(YUGONG_AR)
+	$(CXX) $(TEST_CXXFLAGS) $< $(YUGONG_AR) $(LDFLAGS) -o $@
 
 .PHONY: clean
 

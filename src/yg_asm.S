@@ -35,7 +35,7 @@ end_func yg_stack_swap
 begin_func _yg_stack_swap_cont
 __yg_stack_swap_cont_local:   // local label
   .cfi_startproc simple
-  .cfi_def_cfa %rsp, 64
+  .cfi_def_cfa %rsp, 56
   .cfi_offset %r15, -56
   .cfi_offset %r14, -48
   .cfi_offset %r13, -40

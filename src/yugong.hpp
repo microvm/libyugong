@@ -1,14 +1,19 @@
 #ifndef __YUGONG_HPP__
 #define __YUGONG_HPP__
 
-#include <cstdint>
-
-#ifdef __LINUX__
+#ifdef __linux__
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif // _GNU_SOURCE
 #include <sys/ucontext.h>
-#endif
+#endif // __linux__
 
+#ifndef UNW_LOCAL_ONLY
+#define UNW_LOCAL_ONLY
+#endif // UNW_LOCAL_ONLY
 #include <libunwind.h>
+
+#include <cstdint>
 
 namespace yg {
     inline void _store_word(uintptr_t addr, uintptr_t word) {
@@ -45,6 +50,7 @@ namespace yg {
     };
 
     struct YGCursor {
+        unw_context_t unw_context;
         unw_cursor_t unw_cursor;
         YGStack *stack;
             
