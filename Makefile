@@ -11,8 +11,9 @@ ifndef OS
     endif
 endif
 
-override CFLAGS += -std=gnu11
-override CXXFLAGS += -std=gnu++11
+C_CXX_FLAGS_COMMON = -Wall
+override CFLAGS += -std=gnu11 $(C_CXX_FLAGS_COMMON)
+override CXXFLAGS += -std=gnu++11 $(C_CXX_FLAGS_COMMON)
 
 ifeq ($(OS),LINUX)
     override LDFLAGS += -lunwind -lunwind-x86_64
