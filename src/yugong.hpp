@@ -58,6 +58,11 @@ namespace yg {
 
         void step();
         uintptr_t cur_pc();
+
+        void pop_frames_to();
+        void push_frame(uintptr_t func);
+
+        void _push_ss_top();
     };
 
     void _ss_top_to_unw_context(YGStack &stack, unw_context_t *ctx);

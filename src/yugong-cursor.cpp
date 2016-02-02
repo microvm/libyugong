@@ -1,10 +1,9 @@
 #include "yugong.hpp"
 #include "yugong-debug.hpp"
 
+#include <cinttypes>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
-#include <cstdio>
 
 namespace yg {
     YGCursor::YGCursor(YGStack &the_stack): stack(&the_stack) {
@@ -57,7 +56,11 @@ namespace yg {
     void YGCursor::step() {
         int rv = unw_step(&unw_cursor);
         if (rv < 0) {
+#ifdef __APPLE__
+            yg_debug("Failed in unw_step. Error: %d\n", rv);
+#else
             yg_debug("Failed in unw_step. Error: %d: %s\n", rv, unw_strerror(rv));
+#endif
         }
     }
 
@@ -65,5 +68,34 @@ namespace yg {
         uintptr_t ip;
         unw_get_reg(&unw_cursor, UNW_REG_IP, reinterpret_cast<unw_word_t*>(&ip));
         return ip;
+    }
+
+    void YGCursor::pop_frames_to() {
+        uintptr_t new_sp;
+        unw_get_reg(&unw_cursor, UNW_REG_SP, reinterpret_cast<unw_word_t*>(&new_sp));
+        yg_debug("new_sp = %" PRIxPTR "\n", new_sp);
+        stack->sp = new_sp;
+        _push_ss_top();
+    }
+
+    void YGCursor::_push_ss_top() {
+        uintptr_t rip, rbp, rbx, r12, r13, r14, r15;
+        unw_get_reg(&unw_cursor, UNW_REG_IP,     reinterpret_cast<unw_word_t*>(&rip));
+        unw_get_reg(&unw_cursor, UNW_X86_64_RBP, reinterpret_cast<unw_word_t*>(&rbp));
+        unw_get_reg(&unw_cursor, UNW_X86_64_RBX, reinterpret_cast<unw_word_t*>(&rbx));
+        unw_get_reg(&unw_cursor, UNW_X86_64_R12, reinterpret_cast<unw_word_t*>(&r12));
+        unw_get_reg(&unw_cursor, UNW_X86_64_R13, reinterpret_cast<unw_word_t*>(&r13));
+        unw_get_reg(&unw_cursor, UNW_X86_64_R14, reinterpret_cast<unw_word_t*>(&r14));
+        unw_get_reg(&unw_cursor, UNW_X86_64_R15, reinterpret_cast<unw_word_t*>(&r15));
+
+        stack->_push_word(rip); // return address
+        stack->_push_word(rbp);
+        stack->_push_word(rbx);
+        stack->_push_word(r12);
+        stack->_push_word(r13);
+        stack->_push_word(r14);
+        stack->_push_word(r15);
+
+        stack->_push_word(reinterpret_cast<uintptr_t>(_yg_stack_swap_cont));  // rip = _yg_stack_swap_cont
     }
 }
