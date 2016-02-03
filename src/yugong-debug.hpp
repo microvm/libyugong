@@ -4,7 +4,7 @@
 #include <cstdio>
 
 #ifdef YG_DEBUG
-#define yg_debug(fmt, ...) fprintf(stdout, "YG [%s:%d:%s] " fmt,\
+#define yg_debug(fmt, ...) fprintf(stdout, "YG DEBUG [%s:%d:%s] " fmt,\
         __FILE__, __LINE__, __func__, ## __VA_ARGS__)
 #else
 #define yg_debug(fmt, ...)

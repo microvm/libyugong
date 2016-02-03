@@ -50,6 +50,14 @@ void f(uintptr_t arg) {
     yg_stack_swap(&coro_stack, &main_stack, result);
 }
 
+void print_stack_dump(uintptr_t sp) {
+    ygt_print("Stack dump:\n");
+    uintptr_t addr;
+    for (addr = sp; addr < sp + 160; addr+=8) {
+        ygt_print("  [%" PRIxPTR "] = %" PRIxPTR "\n", addr, _load_word(addr));
+    }
+}
+
 int main(int argc, char *argv[]) {
     coro_stack = YGStack::alloc(4096);
     coro_stack.init((uintptr_t)f);
@@ -61,6 +69,8 @@ int main(int argc, char *argv[]) {
     ygt_print("  f = %p\n", f);
     ygt_print("  g = %p\n", g);
     ygt_print("  h = %p\n", h);
+    ygt_print("  h2 = %p\n", h2);
+    ygt_print("  _yg_func_begin_resume = %p\n", _yg_func_begin_resume);
 
     ygt_print("A leap of faith...\n");
 
@@ -79,6 +89,8 @@ int main(int argc, char *argv[]) {
 
         cursor.step();
     } 
+
+    print_stack_dump(coro_stack.sp);
 
     if (argc > 1) {
         ygt_print("Now we will modify coro_stack.\n");
@@ -105,11 +117,14 @@ int main(int argc, char *argv[]) {
         for (i = 0; i < n; i++) {
             ygt_print("  Frame %d...\n", i);
             cursor2.push_frame(reinterpret_cast<uintptr_t>(h2));
+            //cursor2.push_frame(0xdeadbeeflu);
         }
     } else {
         ygt_print("Not modifying coro_stack now.\n");
         ygt_print("** Invoke %s <n> to replace h with n instances of h2 frames on coro_stack\n", argv[0]);
     }
+
+    print_stack_dump(coro_stack.sp);
 
     ygt_print("Let coro continue...\n");
     int result2 = static_cast<int>(yg_stack_swap(&main_stack, &coro_stack, 1000));
