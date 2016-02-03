@@ -58,13 +58,23 @@ namespace yg {
     }
 
     void YGCursor::step() {
-        int rv = unw_step(&unw_cursor);
-        if (rv < 0) {
+        uintptr_t pc = cur_pc();
+        if (pc == reinterpret_cast<uintptr_t>(_yg_func_begin_resume)) {
+            yg_debug("Function begin frame. Unwind it manually without libunwind.\n");
+            uintptr_t sp = _cur_sp();
+            uintptr_t retaddr = _load_word(sp + 8);
+            uintptr_t new_sp = sp + 16;
+            unw_set_reg(&unw_cursor, UNW_REG_IP, static_cast<unw_word_t>(retaddr));
+            unw_set_reg(&unw_cursor, UNW_REG_SP, static_cast<unw_word_t>(new_sp));
+        } else {
+            int rv = unw_step(&unw_cursor);
+            if (rv < 0) {
 #ifdef __APPLE__
-            yg_debug("Failed in unw_step. Error: %d\n", rv);
+                yg_debug("Failed in unw_step. Error: %d\n", rv);
 #else
-            yg_debug("Failed in unw_step. Error: %d: %s\n", rv, unw_strerror(rv));
+                yg_debug("Failed in unw_step. Error: %d: %s\n", rv, unw_strerror(rv));
 #endif
+            }
         }
     }
 
@@ -72,6 +82,12 @@ namespace yg {
         uintptr_t ip;
         unw_get_reg(&unw_cursor, UNW_REG_IP, reinterpret_cast<unw_word_t*>(&ip));
         return ip;
+    }
+
+    uintptr_t YGCursor::_cur_sp() {
+        uintptr_t sp;
+        unw_get_reg(&unw_cursor, UNW_REG_SP, reinterpret_cast<unw_word_t*>(&sp));
+        return sp;
     }
 
     void YGCursor::pop_frames_to() {

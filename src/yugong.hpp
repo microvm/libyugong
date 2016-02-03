@@ -16,6 +16,10 @@
 #include <cstdint>
 
 namespace yg {
+    inline uintptr_t _load_word(uintptr_t addr) {
+        return *reinterpret_cast<uintptr_t*>(addr);
+    }
+
     inline void _store_word(uintptr_t addr, uintptr_t word) {
         *reinterpret_cast<uintptr_t*>(addr) = word;
     }
@@ -60,6 +64,7 @@ namespace yg {
 
         void step();
         uintptr_t cur_pc();
+        uintptr_t _cur_sp();
 
         void pop_frames_to();
         void push_frame(uintptr_t func);
