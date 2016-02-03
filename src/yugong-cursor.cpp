@@ -7,9 +7,13 @@
 
 namespace yg {
     YGCursor::YGCursor(YGStack &the_stack): stack(&the_stack) {
+        _init_unw();
+    }
+
+    void YGCursor::_init_unw() {
         memset(&unw_context, 0, sizeof(unw_context));
 
-        _ss_top_to_unw_context(the_stack, &unw_context);
+        _ss_top_to_unw_context(*stack, &unw_context);
 
         unw_init_local(&unw_cursor, &unw_context);
     }
@@ -71,16 +75,30 @@ namespace yg {
     }
 
     void YGCursor::pop_frames_to() {
+        _set_sp_to_unw_sp();
+        _push_current_return_address();
+        _push_ss_top();
+
+        // _init_unw();
+        // No need to re-initialize. The stack is modified specifically to match
+        // the current unw_*_t states.
+    }
+
+    void YGCursor::_set_sp_to_unw_sp() {
         uintptr_t new_sp;
         unw_get_reg(&unw_cursor, UNW_REG_SP, reinterpret_cast<unw_word_t*>(&new_sp));
         yg_debug("new_sp = %" PRIxPTR "\n", new_sp);
         stack->sp = new_sp;
-        _push_ss_top();
+    }
+
+    void YGCursor::_push_current_return_address() {
+        uintptr_t rip;
+        unw_get_reg(&unw_cursor, UNW_REG_IP,     reinterpret_cast<unw_word_t*>(&rip));
+        stack->_push_word(rip); // return address
     }
 
     void YGCursor::_push_ss_top() {
-        uintptr_t rip, rbp, rbx, r12, r13, r14, r15;
-        unw_get_reg(&unw_cursor, UNW_REG_IP,     reinterpret_cast<unw_word_t*>(&rip));
+        uintptr_t rbp, rbx, r12, r13, r14, r15;
         unw_get_reg(&unw_cursor, UNW_X86_64_RBP, reinterpret_cast<unw_word_t*>(&rbp));
         unw_get_reg(&unw_cursor, UNW_X86_64_RBX, reinterpret_cast<unw_word_t*>(&rbx));
         unw_get_reg(&unw_cursor, UNW_X86_64_R12, reinterpret_cast<unw_word_t*>(&r12));
@@ -88,7 +106,6 @@ namespace yg {
         unw_get_reg(&unw_cursor, UNW_X86_64_R14, reinterpret_cast<unw_word_t*>(&r14));
         unw_get_reg(&unw_cursor, UNW_X86_64_R15, reinterpret_cast<unw_word_t*>(&r15));
 
-        stack->_push_word(rip); // return address
         stack->_push_word(rbp);
         stack->_push_word(rbx);
         stack->_push_word(r12);
@@ -97,5 +114,14 @@ namespace yg {
         stack->_push_word(r15);
 
         stack->_push_word(reinterpret_cast<uintptr_t>(_yg_stack_swap_cont));  // rip = _yg_stack_swap_cont
+    }
+
+    void YGCursor::push_frame(uintptr_t func) {
+        _set_sp_to_unw_sp();
+        _push_current_return_address();
+        stack->_push_function_starter(func);
+        _push_ss_top();
+
+        _init_unw(); // The stack top changed. Re-initailize unw_*_t
     }
 }

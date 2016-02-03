@@ -56,12 +56,16 @@ namespace yg {
             
         YGCursor(YGStack &stack);
 
+        void _init_unw();
+
         void step();
         uintptr_t cur_pc();
 
         void pop_frames_to();
         void push_frame(uintptr_t func);
 
+        void _set_sp_to_unw_sp();
+        void _push_current_return_address();
         void _push_ss_top();
     };
 
