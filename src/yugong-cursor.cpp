@@ -121,7 +121,7 @@ namespace yg {
             _load_yg_ctx(yg_ctx);
         } else {
             int rv = unw_step(&unw_cursor);
-            YG_CHECK_UNW(rv, rv > 0);
+            YG_CHECK_UNW(rv, rv >= 0);
         }
     }
 
