@@ -11,6 +11,10 @@ ifndef OS
     endif
 endif
 
+LLVM_CONFIG := $(shell ./detect-llvm.sh)
+LLVM_CXXFLAGS := `$(LLVM_CONFIG) --cppflags`
+LLVM_LDFLAGS := `$(LLVM_CONFIG) --ldflags --libs --system-libs`
+
 C_CXX_FLAGS_COMMON = -Wall
 override CFLAGS += -std=gnu11 $(C_CXX_FLAGS_COMMON)
 override CXXFLAGS += -std=gnu++11 $(C_CXX_FLAGS_COMMON)
@@ -32,10 +36,17 @@ YUGONG_OUTS = $(YUGONG_CXX_OUTS) $(YUGONG_ASM_OUTS)
 
 YUGONG_AR = target/libyugong.a
 
+YUGONG_LLVM_CXX_SRCS = $(wildcard src/llvm/*.cpp)
+YUGONG_LLVM_CXX_HDRS = $(wildcard src/llvm/*.hpp)
+YUGONG_LLVM_CXX_OUTS = $(foreach F,$(YUGONG_LLVM_CXX_SRCS),$(patsubst src/llvm/%.cpp,target/%.o,$(F)))
+YUGONG_LLVM_CXXFLAGS = $(CXXFLAGS) -I src $(LLVM_CXXFLAGS)
+
+YUGONG_LLVM_AR = target/libyugong-llvm.a
+
 TEST_SRCS = $(wildcard tests/test_*.cpp)
 TEST_HDRS = $(wildcard tests/test_*.hpp)
 TEST_OUTS = $(foreach F,$(TEST_SRCS),$(patsubst tests/%.cpp,target/%,$(F)))
-TEST_CXXFLAGS = $(CXXFLAGS) -I src
+TEST_CXXFLAGS = $(CXXFLAGS) -I src -I src/llvm
 
 .SECONDEXPANSION:
 
@@ -50,9 +61,16 @@ dir: target
 target:
 	mkdir -p target
 
-.PHONY: src
+.PHONY: src yugong yugong-llvm
 
-src: $(YUGONG_TARGETS)
+src: yugong yugong-llvm
+
+yugong: $(YUGONG_AR)
+
+yugong-llvm: $(YUGONG_LLVM_AR)
+
+$(YUGONG_AR): $(YUGONG_OUTS)
+	$(AR) cr $(YUGONG_AR) $(YUGONG_OUTS)
 
 $(YUGONG_CXX_OUTS): target/%.o: src/%.cpp $(YUGONG_HDRS)
 	$(CXX) -c $(CXXFLAGS) $< -o $@
@@ -60,8 +78,11 @@ $(YUGONG_CXX_OUTS): target/%.o: src/%.cpp $(YUGONG_HDRS)
 $(YUGONG_ASM_OUTS): target/%.o: src/%.S $(YUGONG_ASM_HDRS)
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 
-$(YUGONG_AR): $(YUGONG_OUTS)
-	$(AR) cr $(YUGONG_AR) $(YUGONG_OUTS)
+$(YUGONG_LLVM_AR): $(YUGONG_LLVM_CXX_OUTS)
+	$(AR) cr $(YUGONG_LLVM_AR) $(YUGONG_LLVM_CXX_OUTS)
+
+$(YUGONG_LLVM_CXX_OUTS): target/%.o: src/llvm/%.cpp $(YUGONG_HDRS) $(YUGONG_LLVM_CXX_HDRS)
+	$(CXX) -c $(YUGONG_LLVM_CXXFLAGS) $< -o $@
 
 .PHONY: tests
 
