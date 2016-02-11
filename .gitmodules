@@ -1,0 +1,4 @@
+[submodule "deps/libunwind"]
+	path = deps/libunwind
+	url = git@github.com:llvm-mirror/libunwind.git
+	branch = release_37
