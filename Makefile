@@ -20,7 +20,7 @@ override CFLAGS += -std=gnu11 $(C_CXX_FLAGS_COMMON)
 override CXXFLAGS += -std=gnu++11 $(C_CXX_FLAGS_COMMON)
 
 ifeq ($(OS),LINUX)
-    override LDFLAGS += -lunwind -lunwind-x86_64
+    #override LDFLAGS += -lunwind -lunwind-x86_64
 endif
 
 YUGONG_DIR = yugong
@@ -41,7 +41,7 @@ YUGONG_LLVM_DIR = yugong-llvm
 YUGONG_LLVM_SRCS = $(wildcard $(YUGONG_LLVM_DIR)/*.cpp)
 YUGONG_LLVM_HDRS = $(wildcard $(YUGONG_LLVM_DIR)/*.hpp)
 YUGONG_LLVM_OUTS = $(foreach F,$(YUGONG_LLVM_SRCS),$(patsubst $(YUGONG_LLVM_DIR)/%.cpp,target/%.o,$(F)))
-YUGONG_LLVM_CXXFLAGS = $(CXXFLAGS) -I $(YUGONG_DIR) $(LLVM_CXXFLAGS)
+YUGONG_LLVM_CXXFLAGS = $(CXXFLAGS) -I $(YUGONG_DIR) $(LLVM_CXXFLAGS) -pthread
 
 YUGONG_LLVM_AR = target/libyugong-llvm.a
 
@@ -97,7 +97,7 @@ $(YUGONG_LLVM_OUTS): target/%.o: $(YUGONG_LLVM_DIR)/%.cpp $(YUGONG_HDRS) $(YUGON
 tests: $(TESTS_OUTS)
 
 $(TESTS_OUTS): target/%: $(TESTS_DIR)/%.cpp $(TESTS_HDRS) $(YUGONG_AR) $(LIBUNWIND_AR)
-	$(CXX) $(TESTS_CXXFLAGS) $< $(YUGONG_AR) $(LIBUNWIND_AR) $(LDFLAGS) -o $@
+	$(CXX) $(TESTS_CXXFLAGS) $< $(YUGONG_AR) $(LIBUNWIND_AR) $(LDFLAGS) $(LLVM_LDFLAGS) -o $@
 
 .PHONY: clean
 

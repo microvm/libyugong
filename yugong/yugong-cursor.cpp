@@ -14,7 +14,8 @@ namespace yg {
 #if defined(__APPLE__)
         return "(unw_strerror not available on OSX)";
 #else
-        return unw_strerror(rv);
+        return "(unw_strerror not available on Linux, either)";
+        //return unw_strerror(rv);
 #endif
     }
 
@@ -54,7 +55,7 @@ namespace yg {
         unw_context.data[16] = yg_ctx.rip;
         unw_context.data[ 7] = yg_ctx.rsp;
 #elif defined(__linux__)
-        ucontext_t *uctx = static_cast<ucontext_t*>(&unw_context);
+        ucontext_t *uctx = reinterpret_cast<ucontext_t*>(&unw_context);
         mcontext_t *mctx = &uctx->uc_mcontext;
 
         // see ucontext_i.h in libunwind
