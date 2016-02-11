@@ -15,7 +15,7 @@ LLVM_CONFIG := $(shell ./detect-llvm.sh)
 LLVM_CXXFLAGS := `$(LLVM_CONFIG) --cppflags`
 LLVM_LDFLAGS := `$(LLVM_CONFIG) --ldflags --libs --system-libs`
 
-C_CXX_FLAGS_COMMON = -Wall
+C_CXX_FLAGS_COMMON = -Wall -I deps/libunwind/include
 override CFLAGS += -std=gnu11 $(C_CXX_FLAGS_COMMON)
 override CXXFLAGS += -std=gnu++11 $(C_CXX_FLAGS_COMMON)
 
@@ -51,16 +51,25 @@ TESTS_HDRS = $(wildcard $(TESTS_DIR)/test_*.hpp)
 TESTS_OUTS = $(foreach F,$(TESTS_SRCS),$(patsubst $(TESTS_DIR)/%.cpp,target/%,$(F)))
 TESTS_CXXFLAGS = $(CXXFLAGS) -I $(YUGONG_DIR) -I $(YUGONG_LLVM_DIR)
 
+LIBUNWIND_AR = target/libunwind.a
+
 .SECONDEXPANSION:
 
-.PHONY: all dir src yugong yugong-llvm
+.PHONY: all dir libunwind src yugong yugong-llvm
 
-all: dir src tests
+all: dir libunwind src tests
 
 dir: target
 
 target:
 	mkdir -p target
+
+libunwind: $(LIBUNWIND_AR)
+
+$(LIBUNWIND_AR):
+	mkdir -p target/libunwind-build
+	(cd target/libunwind-build; cmake ../../deps/libunwind -DLLVM_CONFIG=`which $(LLVM_CONFIG)` && make)
+	$(AR) cr $(LIBUNWIND_AR) target/libunwind-build/src/CMakeFiles/unwind.dir/*.o
 
 src: yugong yugong-llvm
 
@@ -87,8 +96,8 @@ $(YUGONG_LLVM_OUTS): target/%.o: $(YUGONG_LLVM_DIR)/%.cpp $(YUGONG_HDRS) $(YUGON
 
 tests: $(TESTS_OUTS)
 
-$(TESTS_OUTS): target/%: $(TESTS_DIR)/%.cpp $(TESTS_HDRS) $(YUGONG_AR)
-	$(CXX) $(TESTS_CXXFLAGS) $< $(YUGONG_AR) $(LDFLAGS) -o $@
+$(TESTS_OUTS): target/%: $(TESTS_DIR)/%.cpp $(TESTS_HDRS) $(YUGONG_AR) $(LIBUNWIND_AR)
+	$(CXX) $(TESTS_CXXFLAGS) $< $(YUGONG_AR) $(LIBUNWIND_AR) $(LDFLAGS) -o $@
 
 .PHONY: clean
 
