@@ -23,12 +23,13 @@ ifeq ($(OS),LINUX)
     override LDFLAGS += -lunwind -lunwind-x86_64
 endif
 
-YUGONG_CXX_SRCS = $(wildcard src/*.cpp)
-YUGONG_CXX_HDRS = $(wildcard src/*.hpp)
-YUGONG_CXX_OUTS = $(foreach F,$(YUGONG_CXX_SRCS),$(patsubst src/%.cpp,target/%.o,$(F)))
-YUGONG_ASM_SRCS = $(wildcard src/*.S)
-YUGONG_ASM_HDRS = $(wildcard src/*.S.inc)
-YUGONG_ASM_OUTS = $(foreach F,$(YUGONG_ASM_SRCS),$(patsubst src/%.S,target/%.o,$(F)))
+YUGONG_DIR = yugong
+YUGONG_CXX_SRCS = $(wildcard $(YUGONG_DIR)/*.cpp)
+YUGONG_CXX_HDRS = $(wildcard $(YUGONG_DIR)/*.hpp)
+YUGONG_CXX_OUTS = $(foreach F,$(YUGONG_CXX_SRCS),$(patsubst $(YUGONG_DIR)/%.cpp,target/%.o,$(F)))
+YUGONG_ASM_SRCS = $(wildcard $(YUGONG_DIR)/*.S)
+YUGONG_ASM_HDRS = $(wildcard $(YUGONG_DIR)/*.S.inc)
+YUGONG_ASM_OUTS = $(foreach F,$(YUGONG_ASM_SRCS),$(patsubst $(YUGONG_DIR)/%.S,target/%.o,$(F)))
 
 YUGONG_SRCS = $(YUGONG_CXX_SRCS) $(YUGONG_ASM_SRCS)
 YUGONG_HDRS = $(YUGONG_CXX_HDRS) $(YUGONG_ASM_HDRS)
@@ -36,32 +37,30 @@ YUGONG_OUTS = $(YUGONG_CXX_OUTS) $(YUGONG_ASM_OUTS)
 
 YUGONG_AR = target/libyugong.a
 
-YUGONG_LLVM_CXX_SRCS = $(wildcard src/llvm/*.cpp)
-YUGONG_LLVM_CXX_HDRS = $(wildcard src/llvm/*.hpp)
-YUGONG_LLVM_CXX_OUTS = $(foreach F,$(YUGONG_LLVM_CXX_SRCS),$(patsubst src/llvm/%.cpp,target/%.o,$(F)))
-YUGONG_LLVM_CXXFLAGS = $(CXXFLAGS) -I src $(LLVM_CXXFLAGS)
+YUGONG_LLVM_DIR = yugong-llvm
+YUGONG_LLVM_SRCS = $(wildcard $(YUGONG_LLVM_DIR)/*.cpp)
+YUGONG_LLVM_HDRS = $(wildcard $(YUGONG_LLVM_DIR)/*.hpp)
+YUGONG_LLVM_OUTS = $(foreach F,$(YUGONG_LLVM_SRCS),$(patsubst $(YUGONG_LLVM_DIR)/%.cpp,target/%.o,$(F)))
+YUGONG_LLVM_CXXFLAGS = $(CXXFLAGS) -I $(YUGONG_DIR) $(LLVM_CXXFLAGS)
 
 YUGONG_LLVM_AR = target/libyugong-llvm.a
 
-TEST_SRCS = $(wildcard tests/test_*.cpp)
-TEST_HDRS = $(wildcard tests/test_*.hpp)
-TEST_OUTS = $(foreach F,$(TEST_SRCS),$(patsubst tests/%.cpp,target/%,$(F)))
-TEST_CXXFLAGS = $(CXXFLAGS) -I src -I src/llvm
+TESTS_DIR = tests
+TESTS_SRCS = $(wildcard $(TESTS_DIR)/test_*.cpp)
+TESTS_HDRS = $(wildcard $(TESTS_DIR)/test_*.hpp)
+TESTS_OUTS = $(foreach F,$(TESTS_SRCS),$(patsubst $(TESTS_DIR)/%.cpp,target/%,$(F)))
+TESTS_CXXFLAGS = $(CXXFLAGS) -I $(YUGONG_DIR) -I $(YUGONG_LLVM_DIR)
 
 .SECONDEXPANSION:
 
-.PHONY: all
+.PHONY: all dir src yugong yugong-llvm
 
 all: dir src tests
-
-.PHONY: dir
 
 dir: target
 
 target:
 	mkdir -p target
-
-.PHONY: src yugong yugong-llvm
 
 src: yugong yugong-llvm
 
@@ -72,24 +71,24 @@ yugong-llvm: $(YUGONG_LLVM_AR)
 $(YUGONG_AR): $(YUGONG_OUTS)
 	$(AR) cr $(YUGONG_AR) $(YUGONG_OUTS)
 
-$(YUGONG_CXX_OUTS): target/%.o: src/%.cpp $(YUGONG_HDRS)
+$(YUGONG_CXX_OUTS): target/%.o: $(YUGONG_DIR)/%.cpp $(YUGONG_HDRS)
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 
-$(YUGONG_ASM_OUTS): target/%.o: src/%.S $(YUGONG_ASM_HDRS)
+$(YUGONG_ASM_OUTS): target/%.o: $(YUGONG_DIR)/%.S $(YUGONG_ASM_HDRS)
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 
-$(YUGONG_LLVM_AR): $(YUGONG_LLVM_CXX_OUTS)
-	$(AR) cr $(YUGONG_LLVM_AR) $(YUGONG_LLVM_CXX_OUTS)
+$(YUGONG_LLVM_AR): $(YUGONG_LLVM_OUTS)
+	$(AR) cr $(YUGONG_LLVM_AR) $(YUGONG_LLVM_OUTS)
 
-$(YUGONG_LLVM_CXX_OUTS): target/%.o: src/llvm/%.cpp $(YUGONG_HDRS) $(YUGONG_LLVM_CXX_HDRS)
+$(YUGONG_LLVM_OUTS): target/%.o: $(YUGONG_LLVM_DIR)/%.cpp $(YUGONG_HDRS) $(YUGONG_LLVM_HDRS)
 	$(CXX) -c $(YUGONG_LLVM_CXXFLAGS) $< -o $@
 
 .PHONY: tests
 
-tests: $(TEST_OUTS)
+tests: $(TESTS_OUTS)
 
-$(TEST_OUTS): target/%: tests/%.cpp $(TEST_HDRS) $(YUGONG_AR)
-	$(CXX) $(TEST_CXXFLAGS) $< $(YUGONG_AR) $(LDFLAGS) -o $@
+$(TESTS_OUTS): target/%: $(TESTS_DIR)/%.cpp $(TESTS_HDRS) $(YUGONG_AR)
+	$(CXX) $(TESTS_CXXFLAGS) $< $(YUGONG_AR) $(LDFLAGS) -o $@
 
 .PHONY: clean
 
