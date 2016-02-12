@@ -45,7 +45,8 @@ namespace yg {
 
         memset(&unw_context, 0, sizeof(unw_context));
 
-#if defined(__APPLE__)
+//#if defined(__APPLE__)
+#if 1
         unw_context.data[15] = yg_ctx.r15;
         unw_context.data[14] = yg_ctx.r14;
         unw_context.data[13] = yg_ctx.r13;
@@ -54,7 +55,8 @@ namespace yg {
         unw_context.data[ 6] = yg_ctx.rbp;
         unw_context.data[16] = yg_ctx.rip;
         unw_context.data[ 7] = yg_ctx.rsp;
-#elif defined(__linux__)
+//#elif defined(__linux__)
+#elif 0
         ucontext_t *uctx = reinterpret_cast<ucontext_t*>(&unw_context);
         mcontext_t *mctx = &uctx->uc_mcontext;
 
