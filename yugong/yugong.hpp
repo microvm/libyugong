@@ -1,17 +1,7 @@
 #ifndef __YUGONG_HPP__
 #define __YUGONG_HPP__
 
-#ifdef __linux__
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif // _GNU_SOURCE
-#include <sys/ucontext.h>
-#endif // __linux__
-
-#ifndef UNW_LOCAL_ONLY
-#define UNW_LOCAL_ONLY
-#endif // UNW_LOCAL_ONLY
-#include <libunwind.h>
+#include "yugong-libunwind-support.hpp"
 
 #include <cstdint>
 
@@ -56,37 +46,24 @@ namespace yg {
         void _push_empty_ss_top();
     };
 
-    // Our own callee-preserved context. 
-    // libunwind and unw_context is simply too unpredictable.
-    // Whenever we unwind frames manually or modify the stack,
-    // we use this as an intermediate.
-    struct YGContext {
-        uintptr_t rsp, rip, rbp, rbx, r12, r13, r14, r15;
-
-        void from_ss_top(uintptr_t sp);
-    };
-
     struct YGCursor {
-        unw_context_t unw_context;
         unw_cursor_t unw_cursor;
         YGStack *stack;
             
         YGCursor(YGStack &stack);
 
-        void _load_yg_ctx(YGContext &yg_ctx);
-        void _dump_yg_ctx(YGContext &yg_ctx);
-
         void _init_unw();
 
         void step();
-        uintptr_t cur_pc();
+        uintptr_t _cur_pc();
         uintptr_t _cur_sp();
-        void _set_unw_sp(uintptr_t new_sp);
+        void _set_cur_pc(uintptr_t new_pc);
+        void _set_cur_sp(uintptr_t new_sp);
 
         void pop_frames_to();
         void push_frame(uintptr_t func);
 
-        void _push_ss_top(YGContext &yg_ctx);
+        void _push_ss_top();
     };
 }
 

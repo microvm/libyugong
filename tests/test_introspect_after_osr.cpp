@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
 
     int i;
     for(i=0; i<10; i++) {
-        uintptr_t cur_pc = cursor.cur_pc();
+        uintptr_t cur_pc = cursor._cur_pc();
         ygt_print("  pc = %" PRIxPTR "\n", cur_pc);
 
         if (cur_pc == reinterpret_cast<uintptr_t>(_yg_func_begin_resume)) {
