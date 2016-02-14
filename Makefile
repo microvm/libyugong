@@ -49,7 +49,12 @@ TESTS_DIR = tests
 TESTS_SRCS = $(wildcard $(TESTS_DIR)/test_*.cpp)
 TESTS_HDRS = $(wildcard $(TESTS_DIR)/test_*.hpp)
 TESTS_OUTS = $(foreach F,$(TESTS_SRCS),$(patsubst $(TESTS_DIR)/%.cpp,target/%,$(F)))
-TESTS_CXXFLAGS = $(CXXFLAGS) -I $(YUGONG_DIR) -I $(YUGONG_LLVM_DIR)
+TESTS_CXXFLAGS = $(CXXFLAGS) -I $(YUGONG_DIR)
+
+TESTS_LLVM_SRCS = $(wildcard $(TESTS_DIR)/test-llvm_*.cpp)
+TESTS_LLVM_HDRS = $(wildcard $(TESTS_DIR)/test-llvm_*.hpp)
+TESTS_LLVM_OUTS = $(foreach F,$(TESTS_LLVM_SRCS),$(patsubst $(TESTS_DIR)/%.cpp,target/%,$(F)))
+TESTS_LLVM_CXXFLAGS = $(CXXFLAGS) $(LLVM_CXXFLAGS) -I $(YUGONG_DIR) -I $(YUGONG_LLVM_DIR)
 
 LIBUNWIND_AR = target/libunwind.a
 
@@ -94,10 +99,13 @@ $(YUGONG_LLVM_OUTS): target/%.o: $(YUGONG_LLVM_DIR)/%.cpp $(YUGONG_HDRS) $(YUGON
 
 .PHONY: tests
 
-tests: $(TESTS_OUTS)
+tests: $(TESTS_OUTS) $(TESTS_LLVM_OUTS)
 
 $(TESTS_OUTS): target/%: $(TESTS_DIR)/%.cpp $(TESTS_HDRS) $(YUGONG_AR) $(LIBUNWIND_AR)
-	$(CXX) $(TESTS_CXXFLAGS) $< $(YUGONG_AR) $(LIBUNWIND_AR) $(LDFLAGS) $(LLVM_LDFLAGS) -o $@
+	$(CXX) $(TESTS_CXXFLAGS) $< $(YUGONG_AR) $(LIBUNWIND_AR) $(LDFLAGS) -o $@
+
+$(TESTS_LLVM_OUTS): target/%: $(TESTS_DIR)/%.cpp $(TESTS_HDRS) $(TESTS_LLVM_HDRS) $(YUGONG_AR) $(YUGONG_LLVM_AR) $(LIBUNWIND_AR)
+	$(CXX) $(TESTS_LLVM_CXXFLAGS) $< $(YUGONG_AR) $(YUGONG_LLVM_AR) $(LIBUNWIND_AR) $(LDFLAGS) $(LLVM_LDFLAGS) -o $@
 
 .PHONY: clean
 
