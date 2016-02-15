@@ -12,7 +12,8 @@ ifndef OS
 endif
 
 LLVM_CONFIG := $(shell ./detect-llvm.sh)
-LLVM_CXXFLAGS := `$(LLVM_CONFIG) --cppflags`
+LLVM_INCLUDEDIR := `$(LLVM_CONFIG) --includedir`
+LLVM_CXXFLAGS := `$(LLVM_CONFIG) --cxxflags`
 LLVM_LDFLAGS := `$(LLVM_CONFIG) --ldflags --libs --system-libs`
 
 C_CXX_FLAGS_COMMON = -Wall -I deps/libunwind/include
@@ -111,3 +112,11 @@ $(TESTS_LLVM_OUTS): target/%: $(TESTS_DIR)/%.cpp $(TESTS_HDRS) $(TESTS_LLVM_HDRS
 
 clean:
 	rm -r target
+
+.PHONY: showincludedirs
+
+showincludedirs:
+	@echo $(realpath $(YUGONG_DIR))
+	@echo $(realpath $(YUGONG_LLVM_DIR))
+	@echo $(LLVM_INCLUDEDIR)
+
