@@ -5,7 +5,9 @@
 
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/ADT/iterator_range.h>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/JITEventListener.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
@@ -30,16 +32,27 @@ namespace yg {
         uintptr_t size;
     };
 
-    class YGStackMapHelper {
-            YGStackMapHelper(const YGStackMapHelper&) = delete;
-            void operator=(const YGStackMapHelper&) = delete;
+    namespace katype {
+    enum KAType {
+        I8,I16,I32,I64,FLOAT,DOUBLE
+    };
+    }
+
+    class StackMapSectionRecorder;
+
+    class StackMapHelper {
+            StackMapHelper(const StackMapHelper&) = delete;
+            void operator=(const StackMapHelper&) = delete;
 
         public:
-            YGStackMapHelper(LLVMContext &_ctx, Module &_module);
+            StackMapHelper(LLVMContext &_ctx, Module &_module);
 
             smid_t create_stack_map(IRBuilder<> &builder, ArrayRef<Value*> kas);
 
-            void add_stackmap_section(AddrRange section);
+            void add_stackmap_sections(StackMapSectionRecorder &smsr, ExecutionEngine &ee);
+
+            smid_t cur_smid(YGCursor &cursor);
+            void dump_keepalives(YGCursor &cursor, ArrayRef<katype::KAType> types, ArrayRef<void*> ptrs);
 
         private:
             LLVMContext *ctx;
@@ -52,9 +65,12 @@ namespace yg {
             static const smid_t FIRST_SMID;
             smid_t next_smid;
 
-            map<smid_t, Value*> smid_to_call;
+            map<smid_t, CallInst*> smid_to_call;
             vector<unique_ptr<SMParser>> parsers;
-            map<smid_t, pair<SMParser*, int>> sm_rec_index;
+            map<uintptr_t, pair<SMParser*, unsigned int>> pc_rec_index;
+
+            void add_stackmap_section(AddrRange sec, ExecutionEngine &ee);
+            void dump_keepalive(YGCursor &cursor, SMParser::LocationAccessor &loc, katype::KAType ty, void* ptr);
     };
 
     class StackMapSectionRecorder: public JITEventListener {

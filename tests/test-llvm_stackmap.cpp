@@ -46,7 +46,7 @@ Function* make_leaf(string name, LLVMContext &ctx, Module &m) {
     return func;
 }
 
-Function* make_caller(string name, Function *callee, YGStackMapHelper &smhelper, LLVMContext &ctx, Module &m) {
+Function* make_caller(string name, Function *callee, StackMapHelper &smhelper, LLVMContext &ctx, Module &m) {
     IRBuilder<> b(ctx);
 
     auto i32 = Type::getInt32Ty(ctx);
@@ -97,7 +97,7 @@ int main() {
     LLVMContext ctx;
     auto m = make_unique<Module>("the_module", ctx);
 
-    YGStackMapHelper smhelper(ctx, *m);
+    StackMapHelper smhelper(ctx, *m);
 
     Function *bar = make_leaf("bar", ctx, *m);
 
@@ -113,18 +113,16 @@ int main() {
     ExecutionEngine *ee = EngineBuilder(move(m)).setEngineKind(EngineKind::JIT).create();
     ygt_print("Execution engine created.\n");
 
-    StackMapSectionRecorder smsc;
+    StackMapSectionRecorder smsr;
     ygt_print("Registering JIT event listener...\n");
-    ee->RegisterJITEventListener(&smsc);
+    ee->RegisterJITEventListener(&smsr);
 
     ygt_print("JIT compiling...\n");
     ee->finalizeObject();
 
-    ygt_print("Stack map sections:\n");
-    for (auto &sec: smsc.sections()) {
-        ygt_print("  section: start=%" PRIxPTR " size=%" PRIxPTR "\n", sec.start, sec.size);
-        smhelper.add_stackmap_section(sec);
-    }
+    ygt_print("Adding stack map sections...\n");
+    smhelper.add_stackmap_sections(smsr, *ee);
+
 
     ygt_print("Getting foo...\n");
     void (*the_real_foo)() = (void(*)())ee->getFunctionAddress("foo");

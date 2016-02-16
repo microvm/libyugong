@@ -15,9 +15,9 @@ namespace yg {
     using namespace std;
     using namespace llvm;
 
-    const smid_t YGStackMapHelper::FIRST_SMID = 0x1000;
+    const smid_t StackMapHelper::FIRST_SMID = 0x1000;
 
-    YGStackMapHelper::YGStackMapHelper(LLVMContext &_ctx, Module &_module):
+    StackMapHelper::StackMapHelper(LLVMContext &_ctx, Module &_module):
         ctx(&_ctx), module(&_module), next_smid(FIRST_SMID)
     {
         i64 = Type::getInt64Ty(*ctx);
@@ -31,7 +31,7 @@ namespace yg {
                 "llvm.experimental.stackmap", module);
     }
 
-    smid_t YGStackMapHelper::create_stack_map(IRBuilder<> &builder, ArrayRef<Value*> kas) {
+    smid_t StackMapHelper::create_stack_map(IRBuilder<> &builder, ArrayRef<Value*> kas) {
         smid_t smid = next_smid;
         next_smid++;
 
@@ -49,20 +49,65 @@ namespace yg {
         return smid;
     }
 
-    void YGStackMapHelper::add_stackmap_section(AddrRange sec) {
+    void StackMapHelper::add_stackmap_sections(StackMapSectionRecorder &smsr, ExecutionEngine &ee) {
+        for (auto &sec : smsr.sections()) {
+            add_stackmap_section(sec, ee);
+        }
+    }
+
+    void StackMapHelper::add_stackmap_section(AddrRange sec, ExecutionEngine &ee) {
         yg_debug("Adding stackmap section. start=%" PRIxPTR " size=%" PRIxPTR "\n", sec.start, sec.size);
 
         auto sm_parser = make_unique<SMParser>(ArrayRef<uint8_t>(reinterpret_cast<uint8_t*>(sec.start), sec.size));
         yg_debug("  SMParser address: %p\n", sm_parser.get());
 
-        int i = 0;
+        unsigned int i = 0;
         for (auto &rec : sm_parser->records()) {
             smid_t smid = rec.getID();
-            yg_debug("  Entry %d: SMID=%" PRIx64 "\n", i, smid);
-            sm_rec_index[smid] = make_pair(sm_parser.get(), i);
+            string func_name = smid_to_call[smid]->getParent()->getParent()->getName();
+            uint64_t func_addr = ee.getFunctionAddress(func_name);
+            uint32_t inst_off = rec.getInstructionOffset();
+            uintptr_t pc = func_addr + inst_off;
+            yg_debug("  Entry %d: SMID=%" PRIx64 ", func_name=%s, func_addr=%" PRIx64 ", inst_off=%" PRIx32 ", PC=%" PRIxPTR "\n",
+                    i, smid, func_name.c_str(), func_addr, inst_off, pc);
+
+            pc_rec_index[pc] = make_pair(sm_parser.get(), i);
             i++;
         }
     }
+
+    smid_t StackMapHelper::cur_smid(YGCursor &cursor) {
+        uintptr_t pc = cursor._cur_pc();
+        auto iter = pc_rec_index.find(pc);
+        if (iter != pc_rec_index.end()) {
+            SMParser* parser = iter->second.first;
+            unsigned int index = iter->second.second;
+            smid_t smid = parser->getRecord(index).getID();
+            return smid;
+        } else {
+            return 0;
+        }
+    }
+
+    void StackMapHelper::dump_keepalives(YGCursor &cursor, ArrayRef<katype::KAType> types, ArrayRef<void*> ptrs) {
+        uintptr_t pc = cursor._cur_pc();
+        auto parser_index = pc_rec_index.at(pc);
+
+        SMParser* parser = parser_index.first;
+        unsigned int index = parser_index.second;
+        auto rec = parser->getRecord(index);
+
+        unsigned int i = 0;
+        for (auto &loc: rec.locations()) {
+            dump_keepalive(cursor, loc, types[i], ptrs[i]);
+            i++;
+        }
+    }
+
+    void StackMapHelper::dump_keepalive(YGCursor &cursor, SMParser::LocationAccessor &loc, katype::KAType ty, void* ptr) {
+        // TODO: dump the variable
+    }
+
 
 #ifdef __APPLE__
     const string StackMapSectionRecorder::STACKMAP_SECTION_NAME = "__llvm_stackmaps";
