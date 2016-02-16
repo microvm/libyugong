@@ -31,7 +31,7 @@ namespace yg {
                 "llvm.experimental.stackmap", module);
     }
 
-    smid_t YGStackMapHelper::createStackMap(IRBuilder<> &builder, ArrayRef<Value*> kas) {
+    smid_t YGStackMapHelper::create_stack_map(IRBuilder<> &builder, ArrayRef<Value*> kas) {
         smid_t smid = next_smid;
         next_smid++;
 
@@ -49,33 +49,32 @@ namespace yg {
         return smid;
     }
 
-    ProxyMemoryManager::ProxyMemoryManager(unique_ptr<SectionMemoryManager> mm):
-        mm(move(mm)), StackMapSection(nullptr), StackMapSectionSize(0LL) {}
+    void YGStackMapHelper::add_stackmap_section(uint8_t *start, uintptr_t size) {
+        yg_debug("Found stackmap section. start=%p size=%" PRIxPTR "\n", start, size);
 
-    
-    uint8_t *ProxyMemoryManager::allocateCodeSection(uintptr_t Size,
-            unsigned Alignment, unsigned SectionID, StringRef SectionName) {
-        yg_debug("allocateCodeSection. Size=%" PRIuPTR
-                ", Alignment=%u, SectionID=%u, SectionName=%s\n", Size, Alignment,
-                SectionID, SectionName.str().c_str());
-        return mm->allocateCodeSection(Size, Alignment, SectionID, SectionName);
+        auto sm_parser = make_unique<SMParser>(ArrayRef<uint8_t>(start, size));
+        yg_debug("sm_parser == %p\n", sm_parser.get());
+        sm_parsers.push_back(move(sm_parser));
     }
 
-    uint8_t *ProxyMemoryManager::allocateDataSection(uintptr_t Size,
-            unsigned Alignment, unsigned SectionID, StringRef SectionName,
-            bool isReadOnly) {
-        yg_debug("allocateDataSection. Size=%" PRIuPTR
-                ", Alignment=%u, SectionID=%u, SectionName=%s, isReadOnly=%s\n",
-                Size, Alignment, SectionID, SectionName.str().c_str(),
-                isReadOnly?"true":"false");
-        return mm->allocateDataSection(Size, Alignment, SectionID, SectionName, isReadOnly);
+#ifdef __APPLE__
+    const string StackMapSectionRecorder::STACKMAP_SECTION_NAME = "__llvm_stackmaps";
+#else
+    const string StackMapSectionRecorder::STACKMAP_SECTION_NAME = ".llvm_stackmaps";
+#endif
+
+    void StackMapSectionRecorder::NotifyObjectEmitted(const object::ObjectFile &Obj,
+                                 const RuntimeDyld::LoadedObjectInfo &L) {
+        for (auto section : Obj.sections()) {
+            StringRef name;
+            section.getName(name);
+            if (name == STACKMAP_SECTION_NAME) {
+                uint8_t* begin = reinterpret_cast<uint8_t*>(L.getSectionLoadAddress(name));
+                uintptr_t size = static_cast<uintptr_t>(section.getSize());
+                Section sec = {begin, size};
+                _sections.push_back(sec);
+            }
+        }
     }
 
-    bool ProxyMemoryManager::finalizeMemory(string *ErrMsg) {
-        return mm->finalizeMemory(ErrMsg);
-    }
-
-    void ProxyMemoryManager::invalidateInstructionCache() {
-        mm->invalidateInstructionCache();
-    }
 }

@@ -4,12 +4,12 @@
 #include "yugong.hpp"
 
 #include <llvm/ADT/ArrayRef.h>
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/ExecutionEngine/MCJIT.h>
-#include <llvm/ExecutionEngine/RTDyldMemoryManager.h>
-#include <llvm/ExecutionEngine/SectionMemoryManager.h>
+#include <llvm/ADT/iterator_range.h>
+#include <llvm/ExecutionEngine/JITEventListener.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
+#include <llvm/Object/StackMapParser.h>
 
 #include <map>
 #include <string>
@@ -21,12 +21,20 @@ namespace yg {
 
     typedef uint64_t smid_t;
 
+    class ProxyMemoryManager;
+
+    typedef StackMapV1Parser<support::endianness::native> SMParser;
+
     class YGStackMapHelper {
-        public:
             YGStackMapHelper(const YGStackMapHelper&) = delete;
+            void operator=(const YGStackMapHelper&) = delete;
+
+        public:
             YGStackMapHelper(LLVMContext &_ctx, Module &_module);
 
-            smid_t createStackMap(IRBuilder<> &builder, ArrayRef<Value*> kas);
+            smid_t create_stack_map(IRBuilder<> &builder, ArrayRef<Value*> kas);
+
+            void add_stackmap_section(uint8_t *start, uintptr_t size);
 
         private:
             LLVMContext *ctx;
@@ -40,30 +48,29 @@ namespace yg {
             smid_t next_smid;
 
             map<smid_t, Value*> smid_to_call;
+            vector<unique_ptr<SMParser>> sm_parsers;
     };
 
-    class ProxyMemoryManager: public RTDyldMemoryManager {
-        ProxyMemoryManager(const ProxyMemoryManager&) = delete;
-        void operator=(const ProxyMemoryManager&) = delete;
-
-        unique_ptr<SectionMemoryManager> mm;
-
-        uint8_t *StackMapSection;
-        uintptr_t StackMapSectionSize;
+    class StackMapSectionRecorder: public JITEventListener {
+            static const string STACKMAP_SECTION_NAME;
 
         public:
-        ProxyMemoryManager(unique_ptr<SectionMemoryManager> mm);
+            struct Section {
+                uint8_t* start;
+                uintptr_t size;
+            };
 
-        uint8_t *allocateCodeSection(uintptr_t Size, unsigned Alignment,
-                unsigned SectionID, StringRef SectionName) override;
+        private:
+            vector<Section> _sections;
 
-        uint8_t *allocateDataSection(uintptr_t Size, unsigned Alignment,
-                unsigned SectionID, StringRef SectionName,
-                bool isReadOnly) override;
+        public:
+            void NotifyObjectEmitted(const object::ObjectFile &Obj,
+                                         const RuntimeDyld::LoadedObjectInfo &L) override;
 
-        bool finalizeMemory(string *ErrMsg = nullptr) override;
-
-        virtual void invalidateInstructionCache();
+            void clear() { _sections.clear(); }
+            typedef vector<Section>::iterator sections_iterator;
+            typedef iterator_range<sections_iterator> sections_range_iterator;
+            sections_range_iterator sections() { return iterator_range<sections_iterator>(_sections.begin(), _sections.end()); }
     };
 }
 
