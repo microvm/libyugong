@@ -25,6 +25,11 @@ namespace yg {
 
     typedef StackMapV1Parser<support::endianness::native> SMParser;
 
+    struct AddrRange {
+        uintptr_t start;
+        uintptr_t size;
+    };
+
     class YGStackMapHelper {
             YGStackMapHelper(const YGStackMapHelper&) = delete;
             void operator=(const YGStackMapHelper&) = delete;
@@ -34,7 +39,7 @@ namespace yg {
 
             smid_t create_stack_map(IRBuilder<> &builder, ArrayRef<Value*> kas);
 
-            void add_stackmap_section(uint8_t *start, uintptr_t size);
+            void add_stackmap_section(AddrRange section);
 
         private:
             LLVMContext *ctx;
@@ -48,27 +53,22 @@ namespace yg {
             smid_t next_smid;
 
             map<smid_t, Value*> smid_to_call;
-            vector<unique_ptr<SMParser>> sm_parsers;
+            vector<unique_ptr<SMParser>> parsers;
+            map<smid_t, pair<SMParser*, int>> sm_rec_index;
     };
 
     class StackMapSectionRecorder: public JITEventListener {
             static const string STACKMAP_SECTION_NAME;
-
-        public:
-            struct Section {
-                uint8_t* start;
-                uintptr_t size;
-            };
-
         private:
-            vector<Section> _sections;
+            vector<AddrRange> _sections;
 
         public:
             void NotifyObjectEmitted(const object::ObjectFile &Obj,
                                          const RuntimeDyld::LoadedObjectInfo &L) override;
 
             void clear() { _sections.clear(); }
-            typedef vector<Section>::iterator sections_iterator;
+
+            typedef vector<AddrRange>::iterator sections_iterator;
             typedef iterator_range<sections_iterator> sections_range_iterator;
             sections_range_iterator sections() { return iterator_range<sections_iterator>(_sections.begin(), _sections.end()); }
     };

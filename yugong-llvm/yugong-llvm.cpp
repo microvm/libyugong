@@ -49,12 +49,19 @@ namespace yg {
         return smid;
     }
 
-    void YGStackMapHelper::add_stackmap_section(uint8_t *start, uintptr_t size) {
-        yg_debug("Found stackmap section. start=%p size=%" PRIxPTR "\n", start, size);
+    void YGStackMapHelper::add_stackmap_section(AddrRange sec) {
+        yg_debug("Adding stackmap section. start=%" PRIxPTR " size=%" PRIxPTR "\n", sec.start, sec.size);
 
-        auto sm_parser = make_unique<SMParser>(ArrayRef<uint8_t>(start, size));
-        yg_debug("sm_parser == %p\n", sm_parser.get());
-        sm_parsers.push_back(move(sm_parser));
+        auto sm_parser = make_unique<SMParser>(ArrayRef<uint8_t>(reinterpret_cast<uint8_t*>(sec.start), sec.size));
+        yg_debug("  SMParser address: %p\n", sm_parser.get());
+
+        int i = 0;
+        for (auto &rec : sm_parser->records()) {
+            smid_t smid = rec.getID();
+            yg_debug("  Entry %d: SMID=%" PRIx64 "\n", i, smid);
+            sm_rec_index[smid] = make_pair(sm_parser.get(), i);
+            i++;
+        }
     }
 
 #ifdef __APPLE__
@@ -69,9 +76,9 @@ namespace yg {
             StringRef name;
             section.getName(name);
             if (name == STACKMAP_SECTION_NAME) {
-                uint8_t* begin = reinterpret_cast<uint8_t*>(L.getSectionLoadAddress(name));
-                uintptr_t size = static_cast<uintptr_t>(section.getSize());
-                Section sec = {begin, size};
+                uintptr_t begin = L.getSectionLoadAddress(name);
+                uintptr_t size = section.getSize();
+                AddrRange sec = {begin, size};
                 _sections.push_back(sec);
             }
         }
