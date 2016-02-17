@@ -16,12 +16,12 @@ LLVM_INCLUDEDIR := `$(LLVM_CONFIG) --includedir`
 LLVM_CXXFLAGS := `$(LLVM_CONFIG) --cxxflags`
 LLVM_LDFLAGS := `$(LLVM_CONFIG) --ldflags --libs --system-libs`
 
-C_CXX_FLAGS_COMMON = -Wall -I deps/libunwind/include
+C_CXX_FLAGS_COMMON = -Wall -I deps/libunwind/include -pthread
 override CFLAGS += -std=gnu11 $(C_CXX_FLAGS_COMMON)
 override CXXFLAGS += -std=gnu++11 $(C_CXX_FLAGS_COMMON)
 
 ifeq ($(OS),LINUX)
-    #override LDFLAGS += -lunwind -lunwind-x86_64
+    override LDFLAGS += -ldl
 endif
 
 YUGONG_DIR = yugong
@@ -42,7 +42,7 @@ YUGONG_LLVM_DIR = yugong-llvm
 YUGONG_LLVM_SRCS = $(wildcard $(YUGONG_LLVM_DIR)/*.cpp)
 YUGONG_LLVM_HDRS = $(wildcard $(YUGONG_LLVM_DIR)/*.hpp)
 YUGONG_LLVM_OUTS = $(foreach F,$(YUGONG_LLVM_SRCS),$(patsubst $(YUGONG_LLVM_DIR)/%.cpp,target/%.o,$(F)))
-YUGONG_LLVM_CXXFLAGS = $(CXXFLAGS) -I $(YUGONG_DIR) $(LLVM_CXXFLAGS) -pthread
+YUGONG_LLVM_CXXFLAGS = $(CXXFLAGS) -I $(YUGONG_DIR) $(LLVM_CXXFLAGS)
 
 YUGONG_LLVM_AR = target/libyugong-llvm.a
 

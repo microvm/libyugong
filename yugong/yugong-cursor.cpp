@@ -76,6 +76,9 @@ namespace yg {
             _set_cur_sp(new_sp);
         } else {
             int rv = unw_step(&unw_cursor);
+            if (rv == 0) {
+                yg_debug("unw_step returned 0. Last frame?\n");
+            }
             YG_CHECK_UNW(rv, rv >= 0);
         }
     }
