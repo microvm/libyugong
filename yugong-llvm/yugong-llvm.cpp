@@ -9,6 +9,7 @@
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Verifier.h>
 
+#include <cstring>
 #include <vector>
 
 namespace yg {
@@ -101,13 +102,89 @@ namespace yg {
 
         unsigned int i = 0;
         for (auto &loc: rec.locations()) {
-            dump_keepalive(cursor, loc, types[i], ptrs[i]);
+            dump_keepalive(cursor, *parser, loc, types[i], ptrs[i]);
             i++;
         }
     }
 
-    void StackMapHelper::dump_keepalive(YGCursor &cursor, SMParser::LocationAccessor &loc, katype::KAType ty, void* ptr) {
-        // TODO: dump the variable
+    void StackMapHelper::dump_keepalive(YGCursor &cursor, SMParser &parser, SMParser::LocationAccessor &loc,
+            katype::KAType ty, void* ptr) {
+        // Limitation: The current API does not support objects bigger than 64 bits.
+        uint64_t value;
+
+        SMParser::LocationKind kind = loc.getKind();
+
+        switch (kind) {
+        case SMParser::LocationKind::Register:
+        case SMParser::LocationKind::Direct:
+        case SMParser::LocationKind::Indirect: {
+            uint16_t regnum = loc.getDwarfRegNum();
+            uint64_t regval;
+            unw_get_reg(&cursor.unw_cursor, regnum, &regval);
+
+            if (kind == SMParser::LocationKind::Register) {
+                value = regval;
+                yg_debug("dump_keepalive. kind=Reg, regnum=%" PRIu16 ", value=%" PRIu64 " (0x%" PRIx64 ")\n", regnum, regval, regval);
+            } else {
+                int32_t offset = loc.getOffset();
+                uint64_t sumval = regval + uint64_t(int64_t(offset));
+
+                if (kind == SMParser::LocationKind::Direct) {
+                    value = sumval;
+                    yg_debug("dump_keepalive. kind=Direct, regnum=%" PRIu16 ", value=%" PRIu64 "+%" PRId32 "=%" PRIu64
+                            " (0x%" PRIx64 "+%" PRId32 "=0x%" PRIx64 ")\n", regnum, regval, offset, sumval, regval, offset, sumval);
+                } else {
+                    value = _load_word(sumval);
+                    yg_debug("dump_keepalive. kind=Inirect, regnum=%" PRIu16 ", addr=%" PRIu64 "+%" PRId32 "=%" PRIu64
+                            " (0x%" PRIx64 "+%" PRId32 "=0x%" PRIx64 ")\n", regnum, regval, offset, sumval, regval, offset, sumval);
+                }
+            }
+            break;
+        }
+        case SMParser::LocationKind::Constant: {
+            uint32_t smallconst = loc.getSmallConstant();
+            value = uint64_t(smallconst);
+            yg_debug("dump_keepalive. kind=Constant, smallconst=%" PRId32 " (0x%" PRIx32 ")\n", smallconst, smallconst);
+            break;
+        }
+        case SMParser::LocationKind::ConstantIndex: {
+            uint32_t index = loc.getConstantIndex();
+            value = parser.getConstant(index).getValue();
+            yg_debug("dump_keepalive. kind=ConstantIndex, index=%" PRId32 ", value=%" PRIu64 " (0x%" PRIx64 ")\n", index, value, value);
+            break;
+        }
+        }
+
+        switch(ty) {
+        case katype::I8: {
+            memcpy(ptr, &value, sizeof(uint8_t));
+            break;
+        }
+        case katype::I16: {
+            memcpy(ptr, &value, sizeof(uint16_t));
+            break;
+        }
+        case katype::I32: {
+            memcpy(ptr, &value, sizeof(uint32_t));
+            break;
+        }
+        case katype::I64: {
+            memcpy(ptr, &value, sizeof(uint64_t));
+             break;
+        }
+        case katype::FLOAT: {
+            memcpy(ptr, &value, sizeof(float));
+            break;
+        }
+        case katype::DOUBLE: {
+            memcpy(ptr, &value, sizeof(double));
+            break;
+        }
+        case katype::PTR: {
+            memcpy(ptr, &value, sizeof(void*));
+            break;
+        }
+        }
     }
 
 

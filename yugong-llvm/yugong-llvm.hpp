@@ -34,7 +34,7 @@ namespace yg {
 
     namespace katype {
     enum KAType {
-        I8,I16,I32,I64,FLOAT,DOUBLE
+        I8,I16,I32,I64,FLOAT,DOUBLE,PTR
     };
     }
 
@@ -70,7 +70,7 @@ namespace yg {
             map<uintptr_t, pair<SMParser*, unsigned int>> pc_rec_index;
 
             void add_stackmap_section(AddrRange sec, ExecutionEngine &ee);
-            void dump_keepalive(YGCursor &cursor, SMParser::LocationAccessor &loc, katype::KAType ty, void* ptr);
+            void dump_keepalive(YGCursor &cursor, SMParser &parser, SMParser::LocationAccessor &loc, katype::KAType ty, void* ptr);
     };
 
     class StackMapSectionRecorder: public JITEventListener {

@@ -118,7 +118,7 @@ pair<Function*, smid_t> make_caller(string name, Function *callee, StackMapHelpe
 
     // Do some random computation
     auto I32 = ConstantInt::get(i32, 1L);
-    auto I64 = ConstantInt::get(i64, 2L);
+    auto I64 = ConstantInt::get(i64, 12345678902468L);
     auto F = ConstantFP::get(f, float(3.0));
     auto D = ConstantFP::get(d, double(4.0));
 
@@ -127,10 +127,15 @@ pair<Function*, smid_t> make_caller(string name, Function *callee, StackMapHelpe
     auto x2 = b.CreateFAdd(params[2], F);
     auto x3 = b.CreateFAdd(params[3], D);
 
+    // This is for testing the "Direct" stack map location.
+    Value *mem = b.CreateAlloca(i64);
+    auto I64_MAGIC = ConstantInt::get(i64, 0xdeadbeefcafebabeUL);
+    b.CreateStore(I64_MAGIC, mem);
+
     vector<Value*> args = { };
     b.CreateCall(callee, args);
 
-    vector<Value*> kas = { params[0], params[1], params[2], params[3], I32, I64, F, D, x0, x1, x2, x3 };
+    vector<Value*> kas = { params[0], params[1], params[2], params[3], I32, I64, F, D, x0, x1, x2, x3, mem};
     smid_t smid = smhelper.create_stack_map(b, kas);
     b.CreateRetVoid();
 
@@ -165,24 +170,29 @@ void coro(MyCtx *myctx) {
             int64_t p1, c1, x1;
             float   p2, c2, x2;
             double  p3, c3, x3;
+            uint64_t *mem;
             vector<katype::KAType> types = {
                     katype::I32, katype::I64, katype::FLOAT, katype::DOUBLE,
                     katype::I32, katype::I64, katype::FLOAT, katype::DOUBLE,
                     katype::I32, katype::I64, katype::FLOAT, katype::DOUBLE,
+                    katype::PTR
             };
             vector<void*> ptrs = {
-                    &p0, &p1, &p2, &p3, &c0, &c1, &c2, &c3, &x0, &x1, &x2, &x3
+                    &p0, &p1, &p2, &p3, &c0, &c1, &c2, &c3, &x0, &x1, &x2, &x3, &mem
             };
 
             smhelper.dump_keepalives(cursor, types, ptrs);
 
             ygt_print("      KAs: "
-                    "%" PRIx32 ", %" PRIx64 ", %f, %lf, "
-                    "%" PRIx32 ", %" PRIx64 ", %f, %lf, "
-                    "%" PRIx32 ", %" PRIx64 ", %f, %lf\n",
-                    p0, p1, p2, p3, c0, c1, c2, c3, x0, x1, x2, x3
+                    "%" PRId32 ", %" PRId64 ", %f, %lf, "
+                    "%" PRId32 ", %" PRId64 ", %f, %lf, "
+                    "%" PRId32 ", %" PRId64 ", %f, %lf, "
+                    "%p\n",
+                    p0, p1, p2, p3, c0, c1, c2, c3, x0, x1, x2, x3, mem
                     );
 
+            uint64_t memval = *mem;
+            ygt_print("      *mem=%" PRIu64 " (0x%" PRIx64 ")\n", memval, memval);
         } else if (smid == myctx->bar_smid) {
             ygt_print("    This is bar.\n");
         } else if (smid == 0) {
