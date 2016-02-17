@@ -74,6 +74,8 @@ namespace yg {
             pc_rec_index[pc] = make_pair(sm_parser.get(), i);
             i++;
         }
+
+        parsers.push_back(move(sm_parser));
     }
 
     smid_t StackMapHelper::cur_smid(YGCursor &cursor) {
