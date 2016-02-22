@@ -188,10 +188,10 @@ void subro() {
     unw_getcontext(&unw_ctx);
     unw_init_local(&unw_cursor, &unw_ctx);
 
-    for(int i=0; i<3; i++) {
+    for(int i=0; i<6; i++) {
         uintptr_t pc, sp;
-        unw_get_reg(&unw_cursor, UNW_REG_IP, &pc);
-        unw_get_reg(&unw_cursor, UNW_REG_SP, &sp);
+        unw_get_reg(&unw_cursor, UNW_REG_IP, reinterpret_cast<unw_word_t*>(&pc));
+        unw_get_reg(&unw_cursor, UNW_REG_SP, reinterpret_cast<unw_word_t*>(&sp));
         ygt_print("  PC: %" PRIxPTR ", SP: %" PRIxPTR "\n", pc, sp);
 
         int rv = unw_step(&unw_cursor);
@@ -237,6 +237,8 @@ int main(int argc, char** argv) {
 
     m->dump();
 
+    Function *subro_func = m->getFunction("subro");
+
     ygt_print("Creating execution engine...\n");
     ExecutionEngine *ee = EngineBuilder(move(m)).setEngineKind(EngineKind::JIT).create();
     ygt_print("Execution engine created.\n");
@@ -244,7 +246,9 @@ int main(int argc, char** argv) {
     ygt_print("Adding global mapping yg_stack_swap...\n");
     ee->addGlobalMapping("yg_stack_swap", reinterpret_cast<uint64_t>(yg_stack_swap));
     ygt_print("Adding global mapping coro...\n");
-    ee->addGlobalMapping("subro", reinterpret_cast<uint64_t>(subro));
+
+    // On Mac, function names are prefixed by '_'.
+    ee->addGlobalMapping(subro_func, reinterpret_cast<void*>(subro));
 
     ygt_print("JIT compiling...\n");
     ee->finalizeObject();
@@ -257,6 +261,8 @@ int main(int argc, char** argv) {
     void (*the_real_bar)() = (void(*)())
             ee->getFunctionAddress("bar");
     ygt_print("the_real_bar == %p\n", the_real_bar);
+
+    ygt_print("main == %p\n", main);
 
     ygt_print("Prepare corotine for introspection...\n");
     coro_stack = YGStack::alloc(8*1024*1024);

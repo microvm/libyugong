@@ -127,8 +127,8 @@ void subro() {
 
     for(int i=0; i<10; i++) {
         uintptr_t pc, sp;
-        unw_get_reg(&unw_cursor, UNW_REG_IP, &pc);
-        unw_get_reg(&unw_cursor, UNW_REG_SP, &sp);
+        unw_get_reg(&unw_cursor, UNW_REG_IP, reinterpret_cast<unw_word_t*>(&pc));
+        unw_get_reg(&unw_cursor, UNW_REG_SP, reinterpret_cast<unw_word_t*>(&sp));
         ygt_print("  PC: %" PRIxPTR ", SP: %" PRIxPTR "\n", pc, sp);
 
         int rv = unw_step(&unw_cursor);
@@ -168,6 +168,8 @@ int main(int argc, char** argv) {
 
     m->dump();
 
+    Function *subro_func = m->getFunction("subro");
+
     RTDyldMemoryManager *smm = new SectionMemoryManager();
     auto smmup = unique_ptr<RTDyldMemoryManager>(smm);
 
@@ -176,8 +178,9 @@ int main(int argc, char** argv) {
     		.setMCJITMemoryManager(move(smmup)).create();
     ygt_print("Execution engine created.\n");
 
-    ygt_print("Adding global mapping coro...\n");
-    ee->addGlobalMapping("subro", reinterpret_cast<uint64_t>(subro));
+    ygt_print("Adding global mapping subro...\n");
+    // On Mac, function names are prefixed by '_'.
+    ee->addGlobalMapping(subro_func, reinterpret_cast<void*>(subro));
 
     ygt_print("JIT compiling...\n");
     ee->finalizeObject();
