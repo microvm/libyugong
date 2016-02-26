@@ -3,6 +3,8 @@
 
 # Output directory
 target
+target2
+target3
 
 # Compiled Object files
 *.slo

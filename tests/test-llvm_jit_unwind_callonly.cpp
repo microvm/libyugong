@@ -27,6 +27,8 @@
 #include <tuple>
 #include <utility>
 
+#include <dlfcn.h>
+
 using namespace std;
 using namespace llvm;
 
@@ -126,14 +128,28 @@ void subro() {
     unw_init_local(&unw_cursor, &unw_ctx);
 
     for(int i=0; i<10; i++) {
-        uintptr_t pc, sp;
-        unw_get_reg(&unw_cursor, UNW_REG_IP, reinterpret_cast<unw_word_t*>(&pc));
-        unw_get_reg(&unw_cursor, UNW_REG_SP, reinterpret_cast<unw_word_t*>(&sp));
-        ygt_print("  PC: %" PRIxPTR ", SP: %" PRIxPTR "\n", pc, sp);
+        unw_word_t pc=0xdeadbeefcafebabel, sp=0xdeadbeefcafebabel;
+        unw_get_reg(&unw_cursor, UNW_REG_IP, &pc);
+        unw_get_reg(&unw_cursor, UNW_REG_SP, &sp);
+        char buf[256];
+        memset(buf, 0, sizeof(buf));
+        unw_word_t off=0xdeadbeefcafebabel;
+        unw_get_proc_name(&unw_cursor, buf, 256, &off);
+
+        ygt_print("  PC: %" PRIx64 ", SP: %" PRIx64 ", func=%s, off=%" PRIx64 "\n", pc, sp, buf, off);
 
         int rv = unw_step(&unw_cursor);
         ygt_print("  unw_step returns %d\n", rv);
     }
+
+    void *self = dlopen(nullptr, RTLD_NOW);
+    ygt_print("self = %p\n", self);
+    void *rf = dlsym(self, "__register_frame@@GCC_3.0");
+    void *rf2 = dlsym(self, "__register_frame");
+
+    ygt_print("__register_frame is %p %p\n", rf, rf2);
+    ygt_print("Press any key to continue...\n");
+    scanf("%*s");
 
     ygt_print("Returning...\n");
 }
