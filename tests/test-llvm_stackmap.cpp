@@ -252,18 +252,25 @@ int main() {
     ygt_print("Registering JIT event listener...\n");
     ee->RegisterJITEventListener(&smsr);
 
+    EHFrameSectionRegisterer reg;
+    ygt_print("Registering EHFrame registerer...\n");
+    ee->RegisterJITEventListener(&reg);
+
     ygt_print("Adding global mapping yg_stack_swap...\n");
     ee->addGlobalMapping(ss_func, reinterpret_cast<void*>(yg_stack_swap));
 
     ygt_print("JIT compiling...\n");
     ee->finalizeObject();
 
+    ygt_print("Adding stack map sections...\n");
+    smhelper.add_stackmap_sections(smsr, *ee);
+
+    ygt_print("Registering EH frames...\n");
+    reg.registerEHFrameSections();
+
     uintptr_t yg_stack_swap_addr = ee->getFunctionAddress("yg_stack_swap");
     ygt_print("yg_stack_swap_addr=%" PRIxPTR ", yg_stack_swap=%p\n", yg_stack_swap_addr, yg_stack_swap);
     assert(yg_stack_swap_addr == reinterpret_cast<uintptr_t>(yg_stack_swap));
-
-    ygt_print("Adding stack map sections...\n");
-    smhelper.add_stackmap_sections(smsr, *ee);
 
     ygt_print("Getting foo...\n");
     void (*the_real_foo)(int32_t, int64_t, float, double) = (void(*)(int32_t, int64_t, float, double))

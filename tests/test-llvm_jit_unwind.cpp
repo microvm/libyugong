@@ -1,6 +1,10 @@
 #include "test_common.hpp"
 
+#include <unistd.h>
+#include <dlfcn.h>
+
 #include <yugong.hpp>
+#include <yugong-llvm.hpp>
 
 #include <llvm/ExecutionEngine/MCJIT.h> // Force MCJIT linking
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -160,6 +164,23 @@ Function* make_caller(string name, Function *callee, LLVMContext &ctx, Module &m
 
 YGStack main_stack, coro_stack;
 
+void print_stack_trace(unw_cursor_t &unw_cursor) {
+    for(int i=0; i<10; i++) {
+        unw_word_t pc=0xdeadbeefcafebabel, sp=0xdeadbeefcafebabel;
+        unw_get_reg(&unw_cursor, UNW_REG_IP, &pc);
+        unw_get_reg(&unw_cursor, UNW_REG_SP, &sp);
+        char buf[256];
+        memset(buf, 0, sizeof(buf));
+        unw_word_t off=0xdeadbeefcafebabel;
+        unw_get_proc_name(&unw_cursor, buf, 256, &off);
+
+        ygt_print("  PC: %" PRIx64 ", SP: %" PRIx64 ", func=%s, off=%" PRIx64 "\n", pc, sp, buf, off);
+
+        int rv = unw_step(&unw_cursor);
+        ygt_print("  unw_step returns %d\n", rv);
+    }
+}
+
 void coro(uintptr_t notused) {
     ygt_print("Hi! This is coro, again. I guess I am called from bar this time.\n");
 
@@ -167,14 +188,7 @@ void coro(uintptr_t notused) {
 
     unw_cursor_t &unw_cursor = cursor.unw_cursor;
 
-    for(int i=0; i<3; i++) {
-        uintptr_t pc = cursor._cur_pc();
-        uintptr_t sp = cursor._cur_sp();
-        ygt_print("  PC: %" PRIxPTR ", SP: %" PRIxPTR "\n", pc, sp);
-
-        int rv = unw_step(&unw_cursor);
-        ygt_print("  unw_step returns %d\n", rv);
-    }
+    print_stack_trace(unw_cursor);
 
     ygt_print("Swapping back...\n");
     yg_stack_swap(&coro_stack, &main_stack, 0L);
@@ -188,20 +202,41 @@ void subro() {
     unw_getcontext(&unw_ctx);
     unw_init_local(&unw_cursor, &unw_ctx);
 
-    for(int i=0; i<6; i++) {
-        uintptr_t pc, sp;
-        unw_get_reg(&unw_cursor, UNW_REG_IP, reinterpret_cast<unw_word_t*>(&pc));
-        unw_get_reg(&unw_cursor, UNW_REG_SP, reinterpret_cast<unw_word_t*>(&sp));
-        ygt_print("  PC: %" PRIxPTR ", SP: %" PRIxPTR "\n", pc, sp);
-
-        int rv = unw_step(&unw_cursor);
-        ygt_print("  unw_step returns %d\n", rv);
-    }
+    print_stack_trace(unw_cursor);
 
     ygt_print("Returning...\n");
 }
 
 int main(int argc, char** argv) {
+	bool usecoro = false;
+	bool showlink = false;
+
+	printf("USAGE: %s [--usecoro] [--showlink]\n", argv[0]);
+
+	for (int i=1; i<argc; i++) {
+		if (strcmp(argv[i], "--usecoro") == 0) {
+			usecoro = true;
+		} else if (strcmp(argv[i], "--showlink") == 0) {
+			showlink = true;
+		}
+	}
+
+	if (showlink) {
+		int pid = getpid();
+
+	    void *self = dlopen(nullptr, RTLD_NOW);
+	    ygt_print("self = %p\n", self);
+	    void *rf = dlsym(self, "__register_frame@@GCC_3.0");
+	    void *rf2 = dlsym(self, "__register_frame");
+
+	    ygt_print("__register_frame@@GCC_3.0 == %p\n", rf);
+	    ygt_print("__register_frame == %p\n", rf2);
+	    ygt_print("I paused the program so you can have a look at /proc/%d/maps\n", pid);
+	    ygt_print("Press enter (return) to continue...\n");
+	    scanf("%*c");
+	    ygt_print("Continuing...\n");
+	}
+
     ygt_print("Hello!\n");
     InitializeNativeTarget();
     InitializeNativeTargetAsmPrinter();
@@ -218,14 +253,13 @@ int main(int argc, char** argv) {
     ygt_print("Constructing bar...\n");
     Function *bar;
 
-    if (argc>1) {
+    if (usecoro) {
         ygt_print("Making bar a swap-stack site...\n");
     	bar = make_ss_leaf("bar", &main_stack, &coro_stack, ctx, *m);
     } else {
         ygt_print("Making bar a call site...\n");
     	bar = make_call_leaf("bar", ctx, *m);
     }
-
 
     verifyFunction(*bar);
 
@@ -250,8 +284,15 @@ int main(int argc, char** argv) {
     // On Mac, function names are prefixed by '_'.
     ee->addGlobalMapping(subro_func, reinterpret_cast<void*>(subro));
 
+    EHFrameSectionRegisterer reg;
+    ygt_print("Registering EHFrame registerer...\n");
+    ee->RegisterJITEventListener(&reg);
+
     ygt_print("JIT compiling...\n");
     ee->finalizeObject();
+
+    ygt_print("Registering EH frames...\n");
+    reg.registerEHFrameSections();
 
     ygt_print("Getting foo...\n");
     void (*the_real_foo)(int32_t, int64_t, float, double) = (void(*)(int32_t, int64_t, float, double))

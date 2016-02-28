@@ -208,4 +208,70 @@ namespace yg {
         }
     }
 
+    const string EHFrameSectionRegisterer::EHFRAME_SECTION_NAME = ".eh_frame";
+
+    void EHFrameSectionRegisterer::NotifyObjectEmitted(const object::ObjectFile &Obj,
+                                 const RuntimeDyld::LoadedObjectInfo &L) {
+#ifdef __APPLE__
+    	yg_debug("Do nothing on OSX.");
+#else
+        for (auto section : Obj.sections()) {
+            StringRef name;
+            section.getName(name);
+            if (name == EHFRAME_SECTION_NAME) {
+            	uintptr_t addr = section.getAddress();
+                uintptr_t begin = L.getSectionLoadAddress(name);
+                uintptr_t size = section.getSize();
+
+                uintptr_t end = begin + size;
+                yg_debug("Found .eh_frame section. addr: %" PRIxPTR ", begin: %" PRIxPTR
+                		", size: %" PRIxPTR ", end: %" PRIxPTR "\n", addr, begin, size, end);
+
+                AddrRange sec = {begin, size};
+                _sections.push_back(sec);
+
+            }
+        }
+#endif
+    }
+
+    void EHFrameSectionRegisterer::registerEHFrameSections() {
+    	for (auto sec : _sections) {
+    		uintptr_t start = sec.start;
+    		uintptr_t end = start + sec.size;
+
+			uintptr_t cur = start;
+			yg_debug("Parsing EH Section %" PRIxPTR "-%" PRIxPTR "...\n", start, end);
+			while (cur < end) {
+				yg_debug("cur == %" PRIxPTR "\n", cur);
+				uint64_t length;
+				uintptr_t cont;
+				uint32_t small_length = *reinterpret_cast<uint32_t*>(cur);
+				if (small_length == 0) {
+					yg_debug("small_length == 0. Terminate.\n");
+					break;
+				} else if (small_length == 0xffffffff) {
+					length = *reinterpret_cast<uint32_t*>(cur + 4);
+					cont = cur + 12;
+				} else {
+					length = small_length;
+					cont = cur + 4;
+				}
+				uintptr_t next_rec = cont + length;
+
+				uint32_t cie_id = *reinterpret_cast<uint32_t*>(cont);
+				if (cie_id == 0) {
+					// This is a CIE. Skip it.
+					yg_debug("Skipping CIE 0x%" PRIxPTR "\n", cur);
+				} else {
+					// This is an FDE. Register with libunwind
+					yg_debug("Calling _unw_add_dynamic_fde(0x%" PRIxPTR ")\n", cur);
+					_unw_add_dynamic_fde(static_cast<unw_word_t>(cur));
+					yg_debug("Returned from _unw_add_dynamic_fde(0x%" PRIxPTR ")\n", cur);
+				}
+				cur = next_rec;
+			}
+    	}
+    }
+
 }
