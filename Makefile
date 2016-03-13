@@ -16,7 +16,7 @@ LLVM_INCLUDEDIR := `$(LLVM_CONFIG) --includedir`
 LLVM_CXXFLAGS := `$(LLVM_CONFIG) --cxxflags`
 LLVM_LDFLAGS := `$(LLVM_CONFIG) --ldflags --libs --system-libs core mcjit x86`
 
-C_CXX_FLAGS_COMMON = -Wall -I deps/libunwind/include -pthread
+C_CXX_FLAGS_COMMON = -fPIC -Wall -I deps/libunwind/include -pthread
 override CFLAGS += -std=gnu11 $(C_CXX_FLAGS_COMMON)
 override CXXFLAGS += -std=gnu++11 $(C_CXX_FLAGS_COMMON)
 
