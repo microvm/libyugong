@@ -52,7 +52,7 @@ namespace yg {
         public:
             StackMapHelper(LLVMContext &_ctx, Module &_module);
 
-            smid_t create_stack_map(IRBuilder<> &builder, ArrayRef<Value*> kas);
+			CallInst* create_stack_map(smid_t smid, IRBuilder<> &builder, ArrayRef<Value*> kas);
 
             void add_stackmap_sections(StackMapSectionRecorder &smsr, ExecutionEngine &ee);
 
@@ -66,9 +66,6 @@ namespace yg {
             Function *stackmap_func;
             Type *i64, *i32, *void_ty;
             Constant *I32_0;
-
-            static const smid_t FIRST_SMID;
-            smid_t next_smid;
 
             map<smid_t, CallInst*> smid_to_call;
             vector<unique_ptr<SMParser>> parsers;

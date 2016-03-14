@@ -31,6 +31,8 @@ using namespace std;
 using namespace llvm;
 using namespace yg;
 
+smid_t next_smid = 0x1000;
+
 Function* make_leaf(string name, LLVMContext &ctx, Module &m) {
     IRBuilder<> b(ctx);
 
@@ -89,7 +91,8 @@ pair<Function*, smid_t> make_ss_leaf(string name, YGStack *local, YGStack *remot
     b.CreateCall(ss, args);
 
     vector<Value*> kas = { };
-    smid_t smid = smhelper.create_stack_map(b, kas);
+    smid_t smid = next_smid++;
+    smhelper.create_stack_map(smid, b, kas);
 
     b.CreateRetVoid();
 
@@ -137,7 +140,8 @@ pair<Function*, smid_t> make_caller(string name, Function *callee, StackMapHelpe
     b.CreateCall(callee, args);
 
     vector<Value*> kas = { params[0], params[1], params[2], params[3], I32, I64, F, D, x0, x1, x2, x3, mem};
-    smid_t smid = smhelper.create_stack_map(b, kas);
+    smid_t smid = next_smid++;
+    smhelper.create_stack_map(smid, b, kas);
     b.CreateRetVoid();
 
     return make_pair(func, smid);

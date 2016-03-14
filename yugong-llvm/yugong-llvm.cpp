@@ -16,10 +16,8 @@ namespace yg {
     using namespace std;
     using namespace llvm;
 
-    const smid_t StackMapHelper::FIRST_SMID = 0x1000;
-
     StackMapHelper::StackMapHelper(LLVMContext &_ctx, Module &_module):
-        ctx(&_ctx), module(&_module), next_smid(FIRST_SMID)
+        ctx(&_ctx), module(&_module)
     {
         i64 = Type::getInt64Ty(*ctx);
         i32 = Type::getInt32Ty(*ctx);
@@ -32,10 +30,7 @@ namespace yg {
                 "llvm.experimental.stackmap", module);
     }
 
-    smid_t StackMapHelper::create_stack_map(IRBuilder<> &builder, ArrayRef<Value*> kas) {
-        smid_t smid = next_smid;
-        next_smid++;
-
+    CallInst* StackMapHelper::create_stack_map(smid_t smid, IRBuilder<> &builder, ArrayRef<Value*> kas) {
         auto smid_const = ConstantInt::get(i64, smid);
         auto sm_args = vector<Value*> { smid_const, I32_0 };
 
@@ -47,7 +42,7 @@ namespace yg {
 
         smid_to_call[smid] = sm;
 
-        return smid;
+        return sm;
     }
 
     void StackMapHelper::add_stackmap_sections(StackMapSectionRecorder &smsr, ExecutionEngine &ee) {
