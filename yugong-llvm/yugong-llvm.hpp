@@ -38,8 +38,8 @@ namespace yg {
     };
 
     namespace katype {
-    enum KAType {
-        I8,I16,I32,I64,FLOAT,DOUBLE,PTR
+    enum KAType : uint8_t {
+        I8=0,I16,I32,I64,FLOAT,DOUBLE,PTR
     };
     }
 
@@ -50,9 +50,11 @@ namespace yg {
             void operator=(const StackMapHelper&) = delete;
 
         public:
-            StackMapHelper(LLVMContext &_ctx, Module &_module);
+            StackMapHelper();
 
-			CallInst* create_stack_map(smid_t smid, IRBuilder<> &builder, ArrayRef<Value*> kas);
+            Function* get_or_declare_stack_map_function(Module &module);
+
+            CallInst* create_stack_map(smid_t smid, IRBuilder<> &builder, ArrayRef<Value*> kas);
 
             void add_stackmap_sections(StackMapSectionRecorder &smsr, ExecutionEngine &ee);
 
@@ -60,13 +62,6 @@ namespace yg {
             void dump_keepalives(YGCursor &cursor, ArrayRef<katype::KAType> types, ArrayRef<void*> ptrs);
 
         private:
-            LLVMContext *ctx;
-            Module *module;
-            FunctionType *stackmap_sig;
-            Function *stackmap_func;
-            Type *i64, *i32, *void_ty;
-            Constant *I32_0;
-
             map<smid_t, CallInst*> smid_to_call;
             vector<unique_ptr<SMParser>> parsers;
             map<uintptr_t, pair<SMParser*, unsigned int>> pc_rec_index;
@@ -93,8 +88,8 @@ namespace yg {
 
     class EHFrameSectionRegisterer: public JITEventListener {
             static const string EHFRAME_SECTION_NAME;
-		private:
-			vector<AddrRange> _sections;
+        private:
+            vector<AddrRange> _sections;
 
         public:
             void NotifyObjectEmitted(const object::ObjectFile &Obj,

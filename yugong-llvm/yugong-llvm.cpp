@@ -16,27 +16,45 @@ namespace yg {
     using namespace std;
     using namespace llvm;
 
-    StackMapHelper::StackMapHelper(LLVMContext &_ctx, Module &_module):
-        ctx(&_ctx), module(&_module)
+    StackMapHelper::StackMapHelper()
     {
-        i64 = Type::getInt64Ty(*ctx);
-        i32 = Type::getInt32Ty(*ctx);
-        void_ty = Type::getVoidTy(*ctx);
-        I32_0 = ConstantInt::get(i32, 0);
+    }
 
-        auto param_tys = vector<Type*> { i64, i32 };
-        stackmap_sig = FunctionType::get(void_ty, param_tys, true);
-        stackmap_func = Function::Create(stackmap_sig, Function::ExternalLinkage,
-                "llvm.experimental.stackmap", module);
+    Function* StackMapHelper::get_or_declare_stack_map_function(Module &module) {
+        Function* stackmap_func = module.getFunction("llvm.experimental.stackmap");
+
+        if (stackmap_func == nullptr) {
+            LLVMContext &ctx = module.getContext();
+            Type* i64 = Type::getInt64Ty(ctx);
+            Type* i32 = Type::getInt32Ty(ctx);
+            Type* void_ty = Type::getVoidTy(ctx);
+            Value* I32_0 = ConstantInt::get(i32, 0);
+
+            auto param_tys = vector<Type*> { i64, i32 };
+            FunctionType* stackmap_sig = FunctionType::get(void_ty, param_tys, true);
+            stackmap_func = Function::Create(stackmap_sig, Function::ExternalLinkage,
+                    "llvm.experimental.stackmap", &module);
+        }
+
+        return stackmap_func;
     }
 
     CallInst* StackMapHelper::create_stack_map(smid_t smid, IRBuilder<> &builder, ArrayRef<Value*> kas) {
-        auto smid_const = ConstantInt::get(i64, smid);
+        LLVMContext &ctx = builder.getContext();
+        Type* i64 = Type::getInt64Ty(ctx);
+
+        Value* smid_const = ConstantInt::get(i64, smid);
+        Type* i32 = Type::getInt32Ty(ctx);
+        Value* I32_0 = ConstantInt::get(i32, 0);
+
         auto sm_args = vector<Value*> { smid_const, I32_0 };
 
         for (auto ka : kas) {
             sm_args.push_back(ka);
         }
+
+        Module &module = *builder.GetInsertBlock()->getModule();
+        Function* stackmap_func = get_or_declare_stack_map_function(module);
 
         auto sm = builder.CreateCall(stackmap_func, sm_args);
 

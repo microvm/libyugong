@@ -225,7 +225,7 @@ int main() {
     auto m = make_unique<Module>("the_module", ctx);
 
     ygt_print("Creating StackMapHelper...\n");
-    StackMapHelper smhelper(ctx, *m);
+    StackMapHelper smhelper;
 
     ygt_print("Declaring yg_stack_swap as an LLVM-level function...\n");
     declare_ss(ctx, *m);
