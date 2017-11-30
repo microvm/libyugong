@@ -9,6 +9,8 @@
         __FILE__, __LINE__, __func__, ## __VA_ARGS__)
 
 namespace yg {
+    // Assumed 64-bit word.  This applies for both x64 and AArch64, but not
+    // other archs.
     inline uintptr_t _load_word(uintptr_t addr) {
         return *reinterpret_cast<uintptr_t*>(addr);
     }

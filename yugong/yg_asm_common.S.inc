@@ -6,7 +6,11 @@
   .text
   .globl CNAME(\n)
   .type CNAME(\n),@function
-  .align 16
+#if defined(__x86_64__)
+  .p2align 4
+#elif defined(__arm64__) || defined(__aarch64__)
+  .p2align 2
+#endif
 CNAME(\n):
   .endm
 
@@ -21,7 +25,7 @@ CNAME(\n):
   .macro begin_func n
   .text
   .globl CNAME(\n)
-  .align 4
+  .p2align 4
 CNAME(\n):
   .endm
 
