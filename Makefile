@@ -59,7 +59,7 @@ TESTS_LLVM_HDRS = $(wildcard $(TESTS_DIR)/test-llvm_*.hpp)
 TESTS_LLVM_OUTS = $(foreach F,$(TESTS_LLVM_SRCS),$(patsubst $(TESTS_DIR)/%.cpp,$(TARGET)/%,$(F)))
 TESTS_LLVM_CXXFLAGS = $(CXXFLAGS) $(LLVM_CXXFLAGS) -I $(YUGONG_DIR) -I $(YUGONG_LLVM_DIR)
 
-LIBUNWIND_AR = $(TARGET)/libunwind.a
+LIBUNWIND_AR = $(TARGET)/libunwind-build/lib/libunwind.a
 
 .SECONDEXPANSION:
 
@@ -76,8 +76,7 @@ libunwind: $(LIBUNWIND_AR)
 
 $(LIBUNWIND_AR):
 	mkdir -p $(TARGET)/libunwind-build
-	(cd $(TARGET)/libunwind-build; cmake ../../deps/libunwind -DLLVM_CONFIG=`which $(LLVM_CONFIG)` && make)
-	$(AR) cr $(LIBUNWIND_AR) $(TARGET)/libunwind-build/src/CMakeFiles/unwind.dir/*.o
+	(cd $(TARGET)/libunwind-build; cmake ../../deps/libunwind -DLLVM_CONFIG_PATH=`which $(LLVM_CONFIG)` && make -j)
 
 .PHONY: recompilelibunwind
 
@@ -85,7 +84,9 @@ recompilelibunwind:
 	(cd $(TARGET)/libunwind-build; make)
 	$(AR) cr $(LIBUNWIND_AR) $(TARGET)/libunwind-build/src/CMakeFiles/unwind.dir/*.o
 
-src: yugong yugong-llvm
+# yugong-llvm needs a major rewriting.  Disabled for now.
+#src: yugong yugong-llvm
+src: yugong
 
 yugong: $(YUGONG_AR)
 
@@ -108,7 +109,9 @@ $(YUGONG_LLVM_OUTS): $(TARGET)/%.o: $(YUGONG_LLVM_DIR)/%.cpp $(YUGONG_HDRS) $(YU
 
 .PHONY: tests
 
-tests: $(TESTS_OUTS) $(TESTS_LLVM_OUTS)
+# yugong-llvm needs a major rewriting.  Disabled for now.
+# tests: $(TESTS_OUTS) $(TESTS_LLVM_OUTS)
+tests: $(TESTS_OUTS)
 
 $(TESTS_OUTS): $(TARGET)/%: $(TESTS_DIR)/%.cpp $(TESTS_HDRS) $(YUGONG_AR) $(LIBUNWIND_AR)
 	$(CXX) $(TESTS_CXXFLAGS) $< $(YUGONG_AR) $(LIBUNWIND_AR) $(LDFLAGS) -o $@
