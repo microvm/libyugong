@@ -63,8 +63,9 @@ int main(int argc, char *argv[]) {
 
     for(i=0; i<3; i++) {
         uintptr_t pc = cursor._cur_pc();
+        uintptr_t sp = cursor._cur_sp();
 
-        ygt_print("  pc = %" PRIxPTR "\n", pc);
+        ygt_print("  pc = %" PRIxPTR ", sp = %" PRIxPTR "\n", pc, sp);
 
         cursor.step();
     } 

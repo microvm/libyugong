@@ -3,6 +3,8 @@
 
 #include <cstdio>
 
+#define YG_DEBUG
+
 #ifdef YG_DEBUG
 #define yg_debug(fmt, ...) fprintf(stdout, "YG DEBUG [%s:%d:%s] " fmt,\
         __FILE__, __LINE__, __func__, ## __VA_ARGS__)

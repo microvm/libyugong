@@ -1,4 +1,5 @@
 #include "yugong.hpp"
+#include "yugong-stacktop.hpp"
 
 #include <cstdint>
 #include <cstdlib>
@@ -19,27 +20,22 @@ namespace yg {
     }
 
     void YGStack::init(uintptr_t func) {
-        _push_return_address(0);
-        _push_function_starter(func);
-        _push_empty_ss_top();
-    }
+#if defined(__x86_64__)
+        _move_sp(-(sizeof(YGInitialStackTop_x86_64)));
+        YGInitialStackTop_x86_64 *init_top =
+            reinterpret_cast<YGInitialStackTop_x86_64*>(sp);
 
-    void YGStack::_push_return_address(uintptr_t addr) {
-        _push_word(addr);
-    }
+        init_top->ss_top.ss_cont = reinterpret_cast<uintptr_t>(_yg_stack_swap_cont);
+        init_top->ss_top.ret_addr = reinterpret_cast<uintptr_t>(_yg_func_begin_resume);
+        init_top->rop_frame.func_addr = func;
+#elif defined(__arm64__) || defined(__aarch64__)
+        _move_sp(-(sizeof(YGInitialStackTop_aarch64)));
+        YGInitialStackTop_aarch64 *init_top =
+            reinterpret_cast<YGInitialStackTop_aarch64*>(sp);
 
-    void YGStack::_push_function_starter(uintptr_t func) {
-        _push_word(reinterpret_cast<uintptr_t>(func));
-        _push_word(reinterpret_cast<uintptr_t>(_yg_func_begin_resume));
-    }
-
-    void YGStack::_push_empty_ss_top() {
-        _push_word(0);  // rbp = 0
-        _push_word(0);  // rbx = 0
-        _push_word(0);  // r12 = 0
-        _push_word(0);  // r13 = 0
-        _push_word(0);  // r14 = 0
-        _push_word(0);  // r15 = 0
-        _push_word(reinterpret_cast<uintptr_t>(_yg_stack_swap_cont));  // rip = _yg_stack_swap_cont
+        init_top->ss_top.ss_cont = reinterpret_cast<uintptr_t>(_yg_stack_swap_cont);
+        init_top->ss_top.lr() = reinterpret_cast<uintptr_t>(_yg_func_begin_resume);
+        init_top->rop_frame.func_addr = func;
+#endif
     }
 }

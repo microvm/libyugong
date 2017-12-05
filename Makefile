@@ -11,12 +11,15 @@ ifndef OS
     endif
 endif
 
+LIBUNWIND_DIR = deps/libunwind
+LIBUNWIND_INCLUDEDIR = $(LIBUNWIND_DIR)/include
+
 LLVM_CONFIG := $(shell ./detect-llvm.sh)
 LLVM_INCLUDEDIR := `$(LLVM_CONFIG) --includedir`
 LLVM_CXXFLAGS := `$(LLVM_CONFIG) --cxxflags`
 LLVM_LDFLAGS := `$(LLVM_CONFIG) --ldflags --libs --system-libs core mcjit x86`
 
-C_CXX_FLAGS_COMMON = -fPIC -Wall -I deps/libunwind/include -pthread
+C_CXX_FLAGS_COMMON = -fPIC -Wall -I $(LIBUNWIND_INCLUDEDIR) -pthread
 override CFLAGS += -std=gnu11 $(C_CXX_FLAGS_COMMON)
 override CXXFLAGS += -std=gnu++11 $(C_CXX_FLAGS_COMMON)
 
@@ -76,7 +79,7 @@ libunwind: $(LIBUNWIND_AR)
 
 $(LIBUNWIND_AR):
 	mkdir -p $(TARGET)/libunwind-build
-	(cd $(TARGET)/libunwind-build; cmake ../../deps/libunwind -DLLVM_CONFIG_PATH=`which $(LLVM_CONFIG)` && make -j)
+	(cd $(TARGET)/libunwind-build; cmake ../../deps/libunwind -DLLVM_CONFIG_PATH=`which $(LLVM_CONFIG)` $(LIBUNWIND_CONF) && make -j $(LIBUNWIND_MAKE))
 
 .PHONY: recompilelibunwind
 

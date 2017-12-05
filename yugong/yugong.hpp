@@ -33,19 +33,20 @@ namespace yg {
 
         void init(uintptr_t func);
 
-        inline void _push_word(uintptr_t word) {
-            sp -= sizeof(uintptr_t), 
-            _store_word(sp, word);
+        inline uintptr_t* _top_buffer() {
+            return reinterpret_cast<uintptr_t*>(sp);
         }
 
-        inline YGStack& operator<<(uintptr_t word) {
-            _push_word(word);
-            return *this;
+        inline void _move_sp(uintptr_t offset) {
+            sp += offset;
         }
-
-        void _push_return_address(uintptr_t addr);
-        void _push_function_starter(uintptr_t func);
-        void _push_empty_ss_top();
+        
+        template<class T>
+        inline T* _push_structure() {
+            _move_sp(-(sizeof(T)));
+            T *ps = reinterpret_cast<T*>(sp);
+            return ps;
+        }
     };
 
     struct YGCursor {
@@ -65,7 +66,10 @@ namespace yg {
         void pop_frames_to();
         void push_frame(uintptr_t func);
 
-        void _push_ss_top();
+        void _reconstruct_ss_top();
+
+        void _get_reg(unw_regnum_t reg, uintptr_t *out);
+        void _set_reg(unw_regnum_t reg, uintptr_t newval);
     };
 }
 
