@@ -69,6 +69,7 @@ namespace yg {
         void _reconstruct_ss_top();
 
         void _get_reg(unw_regnum_t reg, uintptr_t *out);
+        void _get_fpreg(unw_regnum_t reg, unw_fpreg_t *out);
         void _set_reg(unw_regnum_t reg, uintptr_t newval);
     };
 }

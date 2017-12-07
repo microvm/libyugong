@@ -32,23 +32,36 @@ namespace yg {
 
     void unw_ctx_from_ss_top(unw_context_t &ctx, uintptr_t sp) {
         memset(&ctx, 0, sizeof(unw_context_t));
-        uintptr_t* s = reinterpret_cast<uintptr_t*>(sp);
 
 #if defined(__x86_64__)
         Registers_x86_64 *regs = reinterpret_cast<Registers_x86_64*>(&ctx);
         Registers_x86_64::GPRs *gprs = &regs->_registers;
-        gprs->__r15 = s[1];
-        gprs->__r14 = s[2];
-        gprs->__r13 = s[3];
-        gprs->__r12 = s[4];
-        gprs->__rbx = s[5];
-        gprs->__rbp = s[6];
-        gprs->__rip = s[7];
-        gprs->__rsp = reinterpret_cast<uintptr_t>(&s[8]);
+        YGStackTop_x86_64* ss_top = reinterpret_cast<YGStackTop_x86_64*>(sp);
+
+        gprs->__r15 = ss_top->r15;
+        gprs->__r14 = ss_top->r14;
+        gprs->__r13 = ss_top->r13;
+        gprs->__r12 = ss_top->r12;
+        gprs->__rbx = ss_top->rbx;
+        gprs->__rbp = ss_top->rbp;
+        gprs->__rip = ss_top->ret_addr;
+        gprs->__rsp = reinterpret_cast<uintptr_t>(ss_top + 1);
 #elif defined(__arm64__) || defined(__aarch64__)
-        Registers_arm64 *regs = reinterpret_cast<Registers_x86_64>(&ctx);
+        Registers_arm64 *regs = reinterpret_cast<Registers_arm64*>(&ctx);
         Registers_arm64::GPRs *gprs = &regs->_registers;
-#error "Not implemented yet"
+        YGStackTop_aarch64* ss_top = reinterpret_cast<YGStackTop_aarch64*>(sp);
+        for (int i = 8; i <= 15; i++) {
+            regs->_vectorHalfRegisters[i] = ss_top->d8_to_d15[i-8];
+        }
+
+        for (int i = 19; i <= 28; i++) {
+            gprs->__x[i] = ss_top->x19_to_x30[i-19];
+        }
+
+        gprs->__fp = ss_top->fp();
+        gprs->__lr = ss_top->lr();
+        gprs->__pc = ss_top->lr();    // pc equals lr
+        gprs->__sp = reinterpret_cast<uintptr_t>(ss_top + 1);
 #endif
     }
 
@@ -128,6 +141,7 @@ namespace yg {
         YGStackTop_x86_64 *ss_top = stack->_push_structure<YGStackTop_x86_64>();
 
         ss_top->ss_cont = reinterpret_cast<uintptr_t>(_yg_stack_swap_cont);
+
         _get_reg(UNW_X86_64_R15, &ss_top->r15);
         _get_reg(UNW_X86_64_R14, &ss_top->r14);
         _get_reg(UNW_X86_64_R13, &ss_top->r13);
@@ -136,7 +150,20 @@ namespace yg {
         _get_reg(UNW_X86_64_RBP, &ss_top->rbp);
         _get_reg(UNW_REG_IP    , &ss_top->ret_addr);
 #elif defined(__arm64__) || defined(__aarch64__)
-#error unimplemented
+        YGStackTop_aarch64 *ss_top = stack->_push_structure<YGStackTop_aarch64>();
+
+        ss_top->ss_cont = reinterpret_cast<uintptr_t>(_yg_stack_swap_cont);
+        
+        for (int i = 8; i <= 15; i++) {
+            _get_fpreg(UNW_ARM64_D0 + i, &ss_top->d8_to_d15[i-8]);
+        }
+
+        for (int i = 19; i <= 29; i++) {
+            _get_reg(UNW_ARM64_X0 + i, &ss_top->x19_to_x30[i-19]);
+        }
+
+        // The current PC is in the "saved LR (x30)" of the stack-top structure.
+        _get_reg(UNW_REG_IP, &ss_top->lr());
 #endif
     }
 
@@ -168,12 +195,42 @@ namespace yg {
         // swap-stack resumption protocol.
         _reconstruct_ss_top();
 #elif defined(__arm64__) || defined(__aarch64__)
-#error unimplemented
+        uintptr_t pc = _cur_pc(), sp = _cur_sp();
+
+        // Remove the swap-stack top on the physical stack.
+        stack->sp = sp;
+
+        // Construct a ROP frame
+        YGRopFrame_aarch64 *rop_frame = stack->_push_structure<YGRopFrame_aarch64>();
+
+        // The current return address is saved in the ROP frame so that after
+        // `func` returns, the adapter will pop the saved lr into x30, and
+        // return to that register. Then it resumes from the PC set here.
+        rop_frame->saved_lr = pc;
+
+        // The function address
+        rop_frame->func_addr = func;
+
+        // The ROP frame should be entered from the adapter, not `func`.
+        // Therefore we set the current PC to the adapter.
+        _set_reg(UNW_REG_IP, reinterpret_cast<uintptr_t>(_yg_func_begin_resume));
+
+        // The SP has changed because we just pushed a ROP frame.
+        _set_reg(UNW_REG_SP, stack->sp);
+
+        // Reconstruct the swap-stack top so that the stack top always has the
+        // swap-stack resumption protocol.
+        _reconstruct_ss_top();
 #endif
     }
 
     void YGCursor::_get_reg(unw_regnum_t reg, uintptr_t *value) {
         int rv = unw_get_reg(&unw_cursor, reg, reinterpret_cast<unw_word_t*>(value));
+        YG_CHECK_UNW(rv, rv == 0);
+    }
+
+    void YGCursor::_get_fpreg(unw_regnum_t reg, unw_fpreg_t *value) {
+        int rv = unw_get_fpreg(&unw_cursor, reg, reinterpret_cast<unw_fpreg_t*>(value));
         YG_CHECK_UNW(rv, rv == 0);
     }
 

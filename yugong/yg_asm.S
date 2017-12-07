@@ -48,6 +48,9 @@ begin_func yg_stack_swap
     ldr  x4, [x1]
     mov  sp, x4
 
+    // Move x2 (third parameter, passed value) to x0 (first return value)
+    mov  x0, x2
+
     // Resume from the continue point of the opposite stack
     ldr  x30, [sp, #0x00]
     br   x30
@@ -79,9 +82,6 @@ __yg_stack_swap_cont_local:   // local label
     ldp  x25, x26, [sp, #0x80]
     ldp  x27, x28, [sp, #0x90]
     ldp  x29, x30, [sp, #0xa0]
-
-    // Move the passed value (still in x2) into the return value register x0
-    mov  x0, x4
 
     // Restore sp to callee sp
     add  sp, sp, #0xb0

@@ -30,9 +30,10 @@ namespace yg {
         uintptr_t ss_cont;
         uintptr_t unused;
 
-        uintptr_t d8_to_d15[8];
-        uintptr_t x19_to_x30[12];
-        uintptr_t& lr() { return x19_to_x30[11]; }  // Link register (resumption point of the caller to yg_stack_swap)
+        double d8_to_d15[15-8+1];
+        uintptr_t x19_to_x30[30-19+1];
+        uintptr_t& fp() { return x19_to_x30[29-19]; }  // Frame pointer (x29)
+        uintptr_t& lr() { return x19_to_x30[30-19]; }  // Link register (x30, resumption point of the caller to yg_stack_swap)
     };
 
     struct YGRopFrame_aarch64 {
